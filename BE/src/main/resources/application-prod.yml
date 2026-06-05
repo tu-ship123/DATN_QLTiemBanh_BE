@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: bakery-3d-api
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  datasource:
+    url: jdbc:mysql://mysql-prod:3306/bakery3d_prod
+    username: bakery_user
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 8080
+  compression:
+    enabled: true
