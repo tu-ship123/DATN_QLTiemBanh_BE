@@ -1,2 +1,0 @@
--- V3__add_sample_data.sql
--- Add sample data for testing
