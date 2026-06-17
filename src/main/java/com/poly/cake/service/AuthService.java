@@ -12,13 +12,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Random;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,10 +35,14 @@ public class AuthService {
     private final RedisTokenService redisTokenService;
     private final JavaMailSender mailSender;
 
+    // [SỬA] Dùng SecureRandom thay cho Random để tạo OTP an toàn hơn
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     // T007: Đăng ký
     @Transactional
     public void register(RegisterRequest request) {
         if (nguoiDungRepository.findByEmail(request.getEmail()).isPresent()) {
+            // [GIỮ NGUYÊN] Trường hợp đăng ký báo lỗi trùng email là hợp lý
             throw new RuntimeException("Email đã được sử dụng!");
         }
 
@@ -48,30 +54,35 @@ public class AuthService {
                 .quyen("KHACH_HANG")
                 .trangThai("HOAT_DONG")
                 .build();
-        
+
         nguoiDungRepository.save(user);
     }
 
     // T008: Đăng nhập
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // Xác thực tài khoản
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getMatKhau())
-        );
+        // Xác thực tài khoản — Spring Security tự throw BadCredentialsException nếu sai
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getMatKhau())
+            );
+        } catch (BadCredentialsException e) {
+            // [SỬA] Không báo rõ email hay mật khẩu sai, tránh lộ thông tin
+            throw new RuntimeException("Email hoặc mật khẩu không chính xác!");
+        }
 
         NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại"));
 
         if (!user.getTrangThai().equals("HOAT_DONG")) {
-            throw new RuntimeException("Tài khoản đã bị khóa!");
+            throw new RuntimeException("Tài khoản đã bị khóa hoặc ngừng hoạt động!");
         }
 
         // Tạo JWT
         String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getQuyen());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
-        // Lưu Refresh Token vào Database (Xóa token cũ trước khi cấp mới)
+        // Lưu Refresh Token vào Database (xóa token cũ trước khi cấp mới)
         lamMoiTokenRepository.deleteByNguoiDung(user);
         LamMoiToken rtEntity = LamMoiToken.builder()
                 .nguoiDung(user)
@@ -107,7 +118,7 @@ public class AuthService {
         String newAccessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getQuyen());
         String newRefreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
-        // Rotate Refresh Token (Cấp mới, xóa cũ)
+        // Rotate Refresh Token (cấp mới, xóa cũ)
         savedToken.setToken(newRefreshToken);
         savedToken.setNgayHetHan(LocalDateTime.now().plusDays(7));
         lamMoiTokenRepository.save(savedToken);
@@ -143,20 +154,29 @@ public class AuthService {
     // T010: Quên mật khẩu - Gửi mã OTP
     @Transactional
     public void forgotPassword(String email) {
-        NguoiDung user = nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email chưa được đăng ký!"));
+        // [SỬA] Không throw exception nếu email không tồn tại
+        // → Tránh user enumeration attack (kẻ tấn công không biết email nào đã đăng ký)
+        Optional<NguoiDung> userOpt = nguoiDungRepository.findByEmail(email);
 
-        String otp = String.format("%06d", new Random().nextInt(999999));
-        user.setMaOtp(otp);
-        user.setOtpHetHan(LocalDateTime.now().plusMinutes(15));
-        nguoiDungRepository.save(user);
+        if (userOpt.isPresent()) {
+            NguoiDung user = userOpt.get();
 
-        // Gửi email
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(email);
-        message.setSubject("[Tiệm Bánh 3D] Mã xác nhận khôi phục mật khẩu");
-        message.setText("Mã OTP của bạn là: " + otp + " (Có hiệu lực trong 15 phút). Vui lòng không chia sẻ mã này.");
-        mailSender.send(message);
+            // [SỬA] Dùng SecureRandom thay cho Random — tránh bị predict OTP
+            String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+            user.setMaOtp(otp);
+            user.setOtpHetHan(LocalDateTime.now().plusMinutes(15));
+            nguoiDungRepository.save(user);
+
+            // Gửi email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            message.setSubject("[Tiệm Bánh 3D] Mã xác nhận khôi phục mật khẩu");
+            message.setText("Mã OTP của bạn là: " + otp + " (Có hiệu lực trong 15 phút). Vui lòng không chia sẻ mã này.");
+            mailSender.send(message);
+        }
+
+        // [SỬA] Luôn trả về bình thường dù email có tồn tại hay không
+        // Response thống nhất được trả về ở Controller
     }
 
     // T010: Đặt lại mật khẩu mới bằng OTP
@@ -165,12 +185,14 @@ public class AuthService {
         NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
 
-        if (user.getMaOtp() == null || !user.getMaOtp().equals(request.getOtp())) {
-            throw new RuntimeException("Mã OTP không chính xác!");
+        // [SỬA] Kiểm tra hết hạn TRƯỚC khi kiểm tra OTP
+        // → Tránh lộ thông tin "OTP đúng nhưng hết hạn" vs "OTP sai"
+        if (user.getOtpHetHan() == null || user.getOtpHetHan().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Mã OTP đã hết hạn, vui lòng yêu cầu mã mới!");
         }
 
-        if (user.getOtpHetHan().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Mã OTP đã hết hạn!");
+        if (user.getMaOtp() == null || !user.getMaOtp().equals(request.getOtp())) {
+            throw new RuntimeException("Mã OTP không chính xác!");
         }
 
         user.setMatKhau(passwordEncoder.encode(request.getNewPassword()));

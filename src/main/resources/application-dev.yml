@@ -1,7 +1,5 @@
 server:
   port: 8080
-  servlet:
-    context-path: /api
 
 spring:
   # Cấu hình Database SQL Server Local
@@ -25,5 +23,5 @@ spring:
 
   # TÀI KHOẢN GỬI MAIL (CHỈ DÙNG Ở DEV)
   mail:
-    username: email-cua-ban@gmail.com # ĐIỀN EMAIL CỦA BẠN VÀO ĐÂY
-    password: mat-khau-ung-dung # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY
+    username: vegetableshop88@gmail.com # ĐIỀN EMAIL CỦA BẠN VÀO ĐÂY
+    password: "ixsakgqijctydtlo" # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY

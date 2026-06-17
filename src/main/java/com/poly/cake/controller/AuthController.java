@@ -35,13 +35,13 @@ public class AuthController {
         return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
 
-    // T009: Đăng xuất (Yêu cầu phải có Access Token truyền vào header)
+    // T009: Đăng xuất (yêu cầu Access Token trong header)
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpServletRequest request, Authentication authentication) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String accessToken = authHeader.substring(7);
-            String email = authentication.getName(); // Lấy từ SecurityContext
+            String email = authentication.getName();
             authService.logout(accessToken, email);
             return ResponseEntity.ok("Đăng xuất thành công!");
         }
@@ -49,10 +49,12 @@ public class AuthController {
     }
 
     // T010: Quên mật khẩu
+    // [SỬA] Luôn trả về cùng một thông báo dù email có tồn tại hay không
+    // → Tránh kẻ tấn công dò được email nào đã đăng ký
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request.getEmail());
-        return ResponseEntity.ok("Mã OTP đã được gửi đến email của bạn.");
+        return ResponseEntity.ok("Nếu email đã đăng ký, mã OTP sẽ được gửi đến hộp thư của bạn.");
     }
 
     // T010: Khôi phục mật khẩu
