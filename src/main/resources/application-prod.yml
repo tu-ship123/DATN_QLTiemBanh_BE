@@ -1,16 +1,27 @@
-spring:
-  application:
-    name: bakery-3d-api
-  jpa:
-    hibernate:
-      ddl-auto: validate
-  datasource:
-    url: jdbc:mysql://mysql-prod:3306/bakery3d_prod
-    username: bakery_user
-    password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
 server:
-  port: 8080
-  compression:
-    enabled: true
+  port: 80
+  servlet:
+    context-path: /api
+
+spring:
+  # Trên Server thật, thông tin nhạy cảm thường lấy từ Biến môi trường (Environment Variables)
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  
+  jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    hibernate:
+      ddl-auto: validate # Trên Prod CHỈ KIỂM TRA, TUYỆT ĐỐI KHÔNG DÙNG update để tránh làm hỏng dữ liệu thật
+    show-sql: false # Tắt show log SQL để tối ưu hiệu năng
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  mail:
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}

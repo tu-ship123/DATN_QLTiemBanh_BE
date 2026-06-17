@@ -1,17 +1,14 @@
+server:
+  port: 8081 # Đổi port để không đụng với lúc đang code (dev)
+
 spring:
-  application:
-    name: bakery-3d-api
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+  # Khi Test thường dùng database ảo (H2 in-memory) chạy trên RAM cho lẹ và không rác data thật
   datasource:
     url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
+    driverClassName: org.h2.Driver
     username: sa
-    password:
-
-server:
-  port: 8080
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop # Chạy test xong thì tự động xóa sạch bảng

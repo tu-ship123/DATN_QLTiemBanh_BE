@@ -1,15 +1,29 @@
-spring:
-  application:
-    name: bakery-3d-api
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-  datasource:
-    url: jdbc:mysql://localhost:3306/bakery3d_dev
-    username: root
-    password:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
 server:
   port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  # Cấu hình Database SQL Server Local
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=QL_TiemBanh;encrypt=true;trustServerCertificate=true;
+    username: sa # Thay bằng username SQL Server của bạn
+    password: 123456 # Thay bằng password thực tế của bạn
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  
+  jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    hibernate:
+      ddl-auto: update # Tự động tạo/cập nhật bảng dựa trên Entity
+    show-sql: true # Bật cái này lên để thấy câu lệnh SQL chạy ngầm, rất dễ debug
+
+  # Cấu hình Redis Local
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # TÀI KHOẢN GỬI MAIL (CHỈ DÙNG Ở DEV)
+  mail:
+    username: email-cua-ban@gmail.com # ĐIỀN EMAIL CỦA BẠN VÀO ĐÂY
+    password: mat-khau-ung-dung # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY

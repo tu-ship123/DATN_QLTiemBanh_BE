@@ -1,17 +1,32 @@
 spring:
   application:
     name: bakery-3d-api
-  jpa:
-    database-platform: org.hibernate.dialect.MySQL8Dialect
-    hibernate:
-      ddl-auto: update
-  datasource:
-    url: jdbc:mysql://localhost:3306/bakery3d
-    username: root
-    password: 
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # Mặc định khi chạy project sẽ lấy cấu hình từ file application-dev.yml
+  profiles:
+    active: dev 
 
-server:
-  port: 8080
-  servlet:
-    context-path: /api
+  # Cấu hình Mail Server (Dùng chung cho Gmail)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: vegetableshop88@gmail.com
+    password: "ixsakgqijctydtlo"
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Cấu hình giao diện Swagger API
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# Cấu hình JWT chung
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
