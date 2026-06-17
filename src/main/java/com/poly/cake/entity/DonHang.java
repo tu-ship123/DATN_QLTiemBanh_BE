@@ -28,10 +28,10 @@ public class DonHang {
     @JoinColumn(name = "nhan_vien_id")
     private NguoiDung nhanVien;
 
-    // Giả sử bạn sẽ có entity MaGiamGia
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "ma_giam_gia_id")
-    // private MaGiamGia maGiamGia;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ma_giam_gia_id")
+    private MaGiamGia maGiamGia;
+
 
     @Column(nullable = false)
     private String trangThai = "CHO_XAC_NHAN";
