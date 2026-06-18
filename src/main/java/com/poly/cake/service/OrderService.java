@@ -33,6 +33,10 @@ public class OrderService {
     @Autowired
     private SanPhamRepository sanPhamRepository;
 
+    // Kéo "loa phát thanh" WebSocket vào đây
+    @Autowired
+    private NotificationService notificationService;
+
     // 1. TẠO ĐƠN HÀNG (CHECKOUT)
     @Transactional
     public OrderDto.Response createOrder(OrderDto.Request request, String emailNguoiDung) {
@@ -91,6 +95,9 @@ public class OrderService {
         chiTietDonHangRepository.saveAll(chiTietList);
         savedDonHang.setChiTietDonHangs(chiTietList);
 
+        // [MỚI THÊM] Bắn thông báo WebSocket cho toàn bộ nhân viên/admin
+        notificationService.notifyNewOrderToAdmins("TING TING! Có đơn hàng mới được đặt: HD-" + savedDonHang.getId());
+
         return mapToResponseDto(savedDonHang);
     }
 
@@ -122,8 +129,15 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại."));
         
         donHang.setTrangThai(trangThaiMoi.toUpperCase());
-        // ngayCapNhat sẽ tự động sinh do hàm @PreUpdate của bạn
-        return mapToResponseDto(donHangRepository.save(donHang));
+        DonHang updatedDonHang = donHangRepository.save(donHang);
+
+        // [MỚI THÊM] Bắn thông báo trạng thái mới về riêng cho Khách hàng
+        if (updatedDonHang.getKhachHang() != null) {
+            String loiNhan = "Đơn hàng HD-" + id + " của bạn vừa chuyển sang trạng thái: " + trangThaiMoi;
+            notificationService.notifyOrderStatusToUser(updatedDonHang.getKhachHang().getEmail(), loiNhan);
+        }
+
+        return mapToResponseDto(updatedDonHang);
     }
 
     // 6. HỦY ĐƠN HÀNG 
@@ -142,6 +156,9 @@ public class OrderService {
         donHang.setTrangThai("DA_HUY");
         donHang.setLyDoHuy("Khách hàng tự hủy trên web");
         donHangRepository.save(donHang);
+        
+        // Bạn có thể thêm notify gửi cho Admin báo khách vừa hủy đơn nếu cần
+        // notificationService.notifyNewOrderToAdmins("Khách hàng vừa hủy đơn: HD-" + id);
     }
 
     // Hàm phụ trợ chuyển đổi Entity thành DTO

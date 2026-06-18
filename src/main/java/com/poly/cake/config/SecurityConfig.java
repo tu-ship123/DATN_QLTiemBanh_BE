@@ -1,6 +1,5 @@
 package com.poly.cake.config;
 
-
 import com.poly.cake.security.JwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -27,8 +26,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable) // Tắt CSRF vì dùng JWT
             .cors(cors -> cors.configure(http)) // Bật CORS
             .authorizeHttpRequests(auth -> auth
-                // Public APIs (Đăng nhập, đăng ký, xem sản phẩm...)
-                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**").permitAll()
+                // [ĐÃ SỬA]: Thêm /ws-bakery/** vào danh sách Public để đi qua Handshake
+                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
                 
                 // Route dành riêng cho Admin
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
