@@ -18,8 +18,9 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    // 1. API ĐẶT HÀNG (CHECKOUT)
+    // 1. API ĐẶT HÀNG (CHECKOUT) - Chỉ dành cho Khách hàng
     @PostMapping
+    @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> checkout(@RequestBody OrderDto.Request request, Authentication authentication) {
         try {
             String email = authentication.getName();
@@ -30,15 +31,17 @@ public class OrderController {
         }
     }
 
-    // 2. API LẤY LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH ĐANG LOG IN
+    // 2. API LẤY LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH ĐANG LOG IN - Chỉ dành cho Khách hàng
     @GetMapping("/my-orders")
+    @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<List<OrderDto.Response>> getMyOrders(Authentication authentication) {
         String email = authentication.getName();
         return ResponseEntity.ok(orderService.getOrdersByUser(email));
     }
 
-    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID
+    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID - Ai cũng có quyền xem (Khách xem đơn của họ, Admin/Staff xem để xử lý)
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('KHACH_HANG', 'ADMIN', 'NHAN_VIEN')")
     public ResponseEntity<?> getOrderById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(orderService.getOrderById(id));
@@ -66,8 +69,9 @@ public class OrderController {
         }
     }
 
-    // 6. API USER TỰ HỦY ĐƠN HÀNG
+    // 6. API USER TỰ HỦY ĐƠN HÀNG - Chỉ Khách hàng mới được tự hủy đơn của mình
     @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> cancelOrder(@PathVariable Long id, Authentication authentication) {
         try {
             String email = authentication.getName();

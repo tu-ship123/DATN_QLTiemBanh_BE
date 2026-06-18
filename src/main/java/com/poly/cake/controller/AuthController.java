@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +38,7 @@ public class AuthController {
 
     // T009: Đăng xuất (yêu cầu Access Token trong header)
     @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()") // Bổ sung chốt chặn: Phải đăng nhập mới được gọi hàm này
     public ResponseEntity<String> logout(HttpServletRequest request, Authentication authentication) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -47,7 +49,6 @@ public class AuthController {
         }
         return ResponseEntity.badRequest().body("Thiếu thông tin token!");
     }
-
     // T010: Quên mật khẩu
     // [SỬA] Luôn trả về cùng một thông báo dù email có tồn tại hay không
     // → Tránh kẻ tấn công dò được email nào đã đăng ký
