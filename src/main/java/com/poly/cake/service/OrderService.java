@@ -11,6 +11,7 @@ import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +19,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 @Service
 public class OrderService {
 
@@ -209,5 +212,39 @@ public class OrderService {
             dto.setItems(itemDtos);
         }
         return dto;
+    }
+    public Map<String, Object> get3DCakeDesign(Long orderId) {
+        // 1. Tìm đơn hàng
+        DonHang donHang = donHangRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng có ID: " + orderId));
+
+        // 2. Lấy thông tin người đang gọi API (người đang đăng nhập)
+        String emailUserHienTai = SecurityContextHolder.getContext().getAuthentication().getName();
+        NguoiDung userHienTai = nguoiDungRepository.findByEmail(emailUserHienTai)
+                .orElseThrow(() -> new RuntimeException("Lỗi xác thực: Không tìm thấy tài khoản!"));
+
+        // 3. CHẶN LỖ HỔNG BẢO MẬT (IDOR)
+        // Nếu là "Khách hàng", bắt buộc ID của khách hàng trong đơn phải trùng với ID người đang đăng nhập
+        if ("KHACH_HANG".equals(userHienTai.getQuyen())) {
+            if (donHang.getKhachHang() == null || !donHang.getKhachHang().getId().equals(userHienTai.getId())) {
+                throw new RuntimeException("Bạn không có quyền xem thiết kế của đơn hàng này!");
+            }
+        }
+        // (Nếu là Nhân viên hoặc Admin thì nó sẽ bỏ qua đoạn check ở trên và đi tiếp xuống dưới)
+
+        // 4. Lấy chuỗi JSON thiết kế
+        String designJson = donHang.getThietKeBanhJson();
+
+        if (designJson == null || designJson.trim().isEmpty()) {
+            throw new RuntimeException("Đơn hàng này không có dữ liệu thiết kế 3D");
+        }
+
+        // 5. Parse chuỗi String thành Map (Cấu trúc JSON đầy đủ)
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.readValue(designJson, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi parse dữ liệu 3D Design: " + e.getMessage());
+        }
     }
 }
