@@ -83,7 +83,7 @@ public class OrderController {
         }
     }
     @GetMapping("/{id}/design")
-    @PreAuthorize("hasAnyAuthority('NHAN_VIEN', 'ADMIN', 'KHACH_HANG')")
+    @PreAuthorize("hasAnyRole('NHAN_VIEN', 'ADMIN', 'KHACH_HANG')")
     @Operation(summary = "Lấy dữ liệu thiết kế 3D của đơn hàng",
             description = "Trả về cấu trúc JSON đầy đủ để Frontend render Three.js popup")
     public ResponseEntity<?> getOrder3DDesign(@PathVariable Long id) {
