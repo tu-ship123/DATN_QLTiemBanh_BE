@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface ChamCongRepository extends JpaRepository<ChamCong, Long> {
     Optional<ChamCong> findByPhanCa(PhanCa phanCa);
     boolean existsByPhanCa(PhanCa phanCa);
+
 }
