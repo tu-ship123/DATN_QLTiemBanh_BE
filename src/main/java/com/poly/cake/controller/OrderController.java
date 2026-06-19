@@ -1,6 +1,7 @@
 package com.poly.cake.controller;
 
 import com.poly.cake.dto.OrderDto;
+import com.poly.cake.dto.OrderProcessDto;
 import com.poly.cake.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -57,12 +58,15 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
-    // 5. API CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN có quyền duyệt
-    @PutMapping("/{id}/status")
+    // 5. API XỬ LÝ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN có quyền thao tác (Gửi body JSON)
+    @PutMapping("/{id}/process")
     @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
-    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<?> processOrder(@PathVariable Long id, @RequestBody OrderProcessDto request, Authentication authentication) {
         try {
-            OrderDto.Response updatedOrder = orderService.updateStatus(id, status);
+            // Lấy email của Admin/Nhân viên đang log in thao tác
+            String emailNhanVien = authentication.getName();
+            
+            OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
             return ResponseEntity.ok(updatedOrder);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());

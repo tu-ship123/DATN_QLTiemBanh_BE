@@ -38,6 +38,11 @@ public class OrderDto {
         private String trangThai;
         private String ghiChu;
         private String emailNguoiDung;
+        
+        // Mới thêm: Trả về thông tin Nhân viên xử lý và Lý do hủy
+        private String tenNhanVienPhuTrach;
+        private String lyDoHuy;
+        
         private List<OrderItemResponse> items;
     }
 

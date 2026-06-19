@@ -1,6 +1,7 @@
 package com.poly.cake.service;
 
 import com.poly.cake.dto.OrderDto;
+import com.poly.cake.dto.OrderProcessDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.NguoiDung;
@@ -33,7 +34,6 @@ public class OrderService {
     @Autowired
     private SanPhamRepository sanPhamRepository;
 
-    // Kéo "loa phát thanh" WebSocket vào đây
     @Autowired
     private NotificationService notificationService;
 
@@ -43,7 +43,6 @@ public class OrderService {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
 
-        // Validate ngày giao hàng
         if (request.getNgayGiaoHang() == null || request.getNgayGiaoHang().isBefore(LocalDate.now())) {
             throw new RuntimeException("Ngày giao hàng không hợp lệ! Phải chọn từ ngày hôm nay trở đi.");
         }
@@ -52,7 +51,6 @@ public class OrderService {
             throw new RuntimeException("Giỏ hàng trống! Không thể đặt hàng.");
         }
 
-        // Tính toán tiền (Dùng Double tính nháp rồi chuyển sang BigDecimal lưu DB)
         double tongTienHang = request.getItems().stream()
                 .mapToDouble(item -> item.getDonGia() * item.getSoLuong())
                 .sum();
@@ -60,23 +58,17 @@ public class OrderService {
         double phiShip = (tongTienHang >= 500000) ? 0.0 : 30000.0;
         BigDecimal tongTienThanhToan = BigDecimal.valueOf(tongTienHang + phiShip);
 
-        // Khởi tạo đơn hàng mới
         DonHang donHang = new DonHang();
         donHang.setKhachHang(khachHang);
         donHang.setDiaChiGiao(request.getDiaChiGiaoHang());
-        
-        // Chuyển LocalDate sang LocalDateTime (Giả sử mặc định giao lúc 12h trưa)
         donHang.setNgayGiaoDuKien(request.getNgayGiaoHang().atTime(12, 0));
-        
         donHang.setTongTien(tongTienThanhToan);
         donHang.setGhiChu(request.getGhiChu());
         donHang.setTrangThai("CHO_XAC_NHAN"); 
         donHang.setNguonDon("ONLINE");
 
-        // Lưu đơn hàng (ngayTao sẽ tự động sinh do hàm @PrePersist của bạn)
         DonHang savedDonHang = donHangRepository.save(donHang);
 
-        // Lưu chi tiết đơn hàng
         List<ChiTietDonHang> chiTietList = request.getItems().stream().map(itemDto -> {
             SanPham sanPham = sanPhamRepository.findById(itemDto.getSanPhamId())
                     .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
@@ -85,8 +77,6 @@ public class OrderService {
             chiTiet.setDonHang(savedDonHang);
             chiTiet.setSanPham(sanPham);
             chiTiet.setSoLuong(itemDto.getSoLuong());
-            
-            // Đã sửa: Dùng setDonGiaTaiThoiDiem và ép kiểu BigDecimal
             chiTiet.setDonGiaTaiThoiDiem(BigDecimal.valueOf(itemDto.getDonGia())); 
             
             return chiTiet;
@@ -95,7 +85,6 @@ public class OrderService {
         chiTietDonHangRepository.saveAll(chiTietList);
         savedDonHang.setChiTietDonHangs(chiTietList);
 
-        // [MỚI THÊM] Bắn thông báo WebSocket cho toàn bộ nhân viên/admin
         notificationService.notifyNewOrderToAdmins("TING TING! Có đơn hàng mới được đặt: HD-" + savedDonHang.getId());
 
         return mapToResponseDto(savedDonHang);
@@ -122,18 +111,37 @@ public class OrderService {
         return mapToResponseDto(donHang);
     }
 
-    // 5. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG 
+    // 5. XỬ LÝ ĐƠN HÀNG (Dành cho Admin/Nhân viên)
     @Transactional
-    public OrderDto.Response updateStatus(Long id, String trangThaiMoi) {
+    public OrderDto.Response processOrder(Long id, OrderProcessDto request, String emailNhanVien) {
         DonHang donHang = donHangRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại."));
         
-        donHang.setTrangThai(trangThaiMoi.toUpperCase());
+        NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên xử lý!"));
+
+        // Cập nhật người phụ trách
+        donHang.setNhanVien(nhanVien);
+        
+        String trangThaiMoi = request.getTrangThai().toUpperCase();
+        donHang.setTrangThai(trangThaiMoi);
+
+        // Bắt lỗi Hủy đơn phải có lý do
+        if ("DA_HUY".equals(trangThaiMoi)) {
+            if (request.getLyDoHuy() == null || request.getLyDoHuy().trim().isEmpty()) {
+                throw new RuntimeException("Bắt buộc phải nhập lý do khi hủy đơn hàng!");
+            }
+            donHang.setLyDoHuy(request.getLyDoHuy());
+        }
+
         DonHang updatedDonHang = donHangRepository.save(donHang);
 
-        // [MỚI THÊM] Bắn thông báo trạng thái mới về riêng cho Khách hàng
-        if (updatedDonHang.getKhachHang() != null) {
+        // Bắn thông báo về cho khách (Loại trừ khách vãng lai của POS)
+        if (updatedDonHang.getKhachHang() != null && !"khachvanglai@gmail.com".equals(updatedDonHang.getKhachHang().getEmail())) {
             String loiNhan = "Đơn hàng HD-" + id + " của bạn vừa chuyển sang trạng thái: " + trangThaiMoi;
+            if ("DA_HUY".equals(trangThaiMoi)) {
+                loiNhan += ". Lý do: " + request.getLyDoHuy();
+            }
             notificationService.notifyOrderStatusToUser(updatedDonHang.getKhachHang().getEmail(), loiNhan);
         }
 
@@ -156,22 +164,15 @@ public class OrderService {
         donHang.setTrangThai("DA_HUY");
         donHang.setLyDoHuy("Khách hàng tự hủy trên web");
         donHangRepository.save(donHang);
-        
-        // Bạn có thể thêm notify gửi cho Admin báo khách vừa hủy đơn nếu cần
-        // notificationService.notifyNewOrderToAdmins("Khách hàng vừa hủy đơn: HD-" + id);
     }
 
     // Hàm phụ trợ chuyển đổi Entity thành DTO
     private OrderDto.Response mapToResponseDto(DonHang donHang) {
         OrderDto.Response dto = new OrderDto.Response();
         dto.setId(donHang.getId());
-        
-        // Entity không lưu mã, mình lấy ID làm mã tạm cho DTO
         dto.setMaDonHang("HD-" + donHang.getId()); 
-        
         dto.setDiaChiGiaoHang(donHang.getDiaChiGiao());
         
-        // Lấy SĐT từ bảng Khách Hàng (Giả sử Entity NguoiDung có getSoDienThoai)
         if (donHang.getKhachHang() != null) {
             dto.setSoDienThoai(donHang.getKhachHang().getSoDienThoai()); 
             dto.setEmailNguoiDung(donHang.getKhachHang().getEmail());
@@ -189,6 +190,12 @@ public class OrderService {
         
         dto.setTrangThai(donHang.getTrangThai());
         dto.setGhiChu(donHang.getGhiChu());
+        
+        // Set thêm nhân viên phụ trách và lý do hủy vào DTO
+        if (donHang.getNhanVien() != null) {
+            dto.setTenNhanVienPhuTrach(donHang.getNhanVien().getHoTen());
+        }
+        dto.setLyDoHuy(donHang.getLyDoHuy());
 
         if (donHang.getChiTietDonHangs() != null) {
             List<OrderDto.OrderItemResponse> itemDtos = donHang.getChiTietDonHangs().stream().map(item -> {
@@ -196,10 +203,7 @@ public class OrderService {
                 itemDto.setSanPhamId(item.getSanPham().getId());
                 itemDto.setTenSanPham(item.getSanPham().getTenSanPham());
                 itemDto.setSoLuong(item.getSoLuong());
-                
-                // Đã sửa: Dùng getDonGiaTaiThoiDiem và xử lý null an toàn
                 itemDto.setGiaBan(item.getDonGiaTaiThoiDiem() != null ? item.getDonGiaTaiThoiDiem().doubleValue() : 0.0);
-                
                 return itemDto;
             }).collect(Collectors.toList());
             dto.setItems(itemDtos);
