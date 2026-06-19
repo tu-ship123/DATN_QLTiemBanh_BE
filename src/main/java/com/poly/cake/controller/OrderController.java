@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.OrderDto;
 import com.poly.cake.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,5 +81,13 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+    @GetMapping("/{id}/design")
+    @PreAuthorize("hasAnyAuthority('NHAN_VIEN', 'ADMIN', 'KHACH_HANG')")
+    @Operation(summary = "Lấy dữ liệu thiết kế 3D của đơn hàng",
+            description = "Trả về cấu trúc JSON đầy đủ để Frontend render Three.js popup")
+    public ResponseEntity<?> getOrder3DDesign(@PathVariable Long id) {
+        // Gọi hàm bên Service và trả về luôn
+        return ResponseEntity.ok(orderService.get3DCakeDesign(id));
     }
 }
