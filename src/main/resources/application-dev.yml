@@ -25,3 +25,7 @@ spring:
   mail:
     username: vegetableshop88@gmail.com # ĐIỀN EMAIL CỦA BẠN VÀO ĐÂY
     password: "ixsakgqijctydtlo" # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY
+
+logging:
+  level:
+    org.springframework.security: DEBUG

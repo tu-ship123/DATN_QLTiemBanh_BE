@@ -5,6 +5,8 @@ import com.poly.cake.security.CustomAccessDeniedHandler;
 // Lớp RateLimitingFilter em vừa tạo cùng thư mục nên không cần import thêm
 import com.poly.cake.security.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -73,4 +75,18 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
+    @Bean
+public FilterRegistrationBean<JwtFilter> jwtFilterRegistration(JwtFilter filter) {
+    FilterRegistrationBean<JwtFilter> registrationBean = new FilterRegistrationBean<>(filter);
+    registrationBean.setEnabled(false); // Không cho Spring Boot tự đăng ký global
+    return registrationBean;
+}
+
+@Bean
+public FilterRegistrationBean<RateLimitingFilter> rateLimitFilterRegistration(RateLimitingFilter filter) {
+    FilterRegistrationBean<RateLimitingFilter> registrationBean = new FilterRegistrationBean<>(filter);
+    registrationBean.setEnabled(false);
+    return registrationBean;
+}
 }
