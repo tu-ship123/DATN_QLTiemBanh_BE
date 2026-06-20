@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.PhanCaRequest;
 import com.poly.cake.service.PhanCaService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,7 +18,7 @@ public class PhanCaController {
 
     // Phân ca cho nhân viên
     @PostMapping("/schedules")
-    public ResponseEntity<?> createSchedule(@RequestBody PhanCaRequest request) {
+    public ResponseEntity<?> createSchedule(@Valid @RequestBody PhanCaRequest request) {
         try {
             return ResponseEntity.ok(phanCaService.createPhanCa(request));
         } catch (Exception e) {

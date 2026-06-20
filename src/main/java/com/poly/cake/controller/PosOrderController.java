@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.PosOrderDto;
 import com.poly.cake.service.PosOrderService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,7 @@ public class PosOrderController {
 
     // API Tạo hóa đơn tại quầy + Lấy mã chuyển khoản VietQR + Dữ liệu in bill
     @PostMapping
-    public ResponseEntity<?> createPosOrder(@RequestBody PosOrderDto.Request request, Authentication authentication) {
+    public ResponseEntity<?> createPosOrder(@Valid @RequestBody PosOrderDto.Request request, Authentication authentication) {
         try {
             // Lấy email của Nhân viên thu ngân đang thực hiện đăng nhập từ Token
             String emailNhanVien = authentication.getName();

@@ -3,6 +3,7 @@ package com.poly.cake.controller;
 import com.poly.cake.dto.AuthDto.*;
 import com.poly.cake.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,14 +20,15 @@ public class AuthController {
 
     // T007
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body("Đăng ký thành công!");
     }
 
     // T008
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 
@@ -53,15 +55,16 @@ public class AuthController {
     // [SỬA] Luôn trả về cùng một thông báo dù email có tồn tại hay không
     // → Tránh kẻ tấn công dò được email nào đã đăng ký
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request.getEmail());
         return ResponseEntity.ok("Nếu email đã đăng ký, mã OTP sẽ được gửi đến hộp thư của bạn.");
     }
 
     // T010: Khôi phục mật khẩu
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok("Đặt lại mật khẩu thành công!");
     }
+
 }

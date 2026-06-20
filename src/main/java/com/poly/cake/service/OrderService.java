@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.poly.cake.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -127,6 +127,18 @@ public class OrderService {
         donHang.setNhanVien(nhanVien);
         
         String trangThaiMoi = request.getTrangThai().toUpperCase();
+        String trangThaiHienTai = donHang.getTrangThai();
+
+
+        // [SỬA LỖI 14]: Chặn lùi trạng thái đơn hàng
+        if (trangThaiHienTai.equals("DA_GIAO") || trangThaiHienTai.equals("DA_HUY") || trangThaiHienTai.equals("DA_HOAN_TIEN")) {
+            throw new BusinessException("Đơn hàng đã chốt (Giao/Hủy/Hoàn tiền) thì không thể thay đổi trạng thái được nữa!");
+        }
+
+        // Chặn chuyển trạng thái ngược luồng (Ví dụ: Đang giao -> Chờ xác nhận)
+        if (trangThaiHienTai.equals("DANG_GIAO") && (trangThaiMoi.equals("CHO_XAC_NHAN") || trangThaiMoi.equals("DANG_CHUAN_BI"))) {
+            throw new BusinessException("Đơn hàng đang giao, không thể lùi trạng thái!");
+        }
         donHang.setTrangThai(trangThaiMoi);
 
         // Bắt lỗi Hủy đơn phải có lý do

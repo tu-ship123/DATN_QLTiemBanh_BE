@@ -4,6 +4,7 @@ import com.poly.cake.dto.OrderDto;
 import com.poly.cake.dto.OrderProcessDto;
 import com.poly.cake.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public class OrderController {
     // 1. API ĐẶT HÀNG (CHECKOUT) - Chỉ dành cho Khách hàng
     @PostMapping
     @PreAuthorize("hasRole('KHACH_HANG')")
-    public ResponseEntity<?> checkout(@RequestBody OrderDto.Request request, Authentication authentication) {
+    public ResponseEntity<?> checkout(@Valid @RequestBody OrderDto.Request request, Authentication authentication) {
         try {
             String email = authentication.getName();
             OrderDto.Response response = orderService.createOrder(request, email);
@@ -62,7 +63,7 @@ public class OrderController {
     // 5. API XỬ LÝ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN có quyền thao tác (Gửi body JSON)
     @PutMapping("/{id}/process")
     @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
-    public ResponseEntity<?> processOrder(@PathVariable Long id, @RequestBody OrderProcessDto request, Authentication authentication) {
+    public ResponseEntity<?> processOrder(@PathVariable Long id, @Valid @RequestBody OrderProcessDto request, Authentication authentication) {
         try {
             // Lấy email của Admin/Nhân viên đang log in thao tác
             String emailNhanVien = authentication.getName();
