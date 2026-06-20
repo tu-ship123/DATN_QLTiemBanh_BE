@@ -1,8 +1,9 @@
-package com.poly.cake.security;
+package com.poly.cake.config;
 
 import com.poly.cake.security.JwtFilter;
 import com.poly.cake.security.CustomAccessDeniedHandler;
 // Lớp RateLimitingFilter em vừa tạo cùng thư mục nên không cần import thêm
+import com.poly.cake.security.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
