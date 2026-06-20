@@ -1,5 +1,6 @@
 package com.poly.cake.service;
 
+import lombok.extern.slf4j.Slf4j;
 import com.poly.cake.dto.StaffCheckinRequest;
 import com.poly.cake.dto.ChamCongResponse;
 import com.poly.cake.entity.ChamCong;
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChamCongService {
@@ -37,8 +38,7 @@ public class ChamCongService {
      */
     @Transactional
     public ChamCongResponse checkIn(StaffCheckinRequest request) {
-        System.out.println("DEBUG: phanCaId từ request là: " + request.getPhanCaId());
-
+        log.debug("Đang xử lý chấm công cho phanCaId: {}", request.getPhanCaId());
         NguoiDung nhanVien = getNhanVienHienTai();
         System.out.println("DEBUG: ID nhân viên hiện tại là: " + nhanVien.getId());
         // ------------------------------

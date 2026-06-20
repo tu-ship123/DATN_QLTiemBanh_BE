@@ -153,30 +153,26 @@ public class AuthService {
 
     // T010: Quên mật khẩu - Gửi mã OTP
     @Transactional
-    public void forgotPassword(String email) {
-        // [SỬA] Không throw exception nếu email không tồn tại
-        // → Tránh user enumeration attack (kẻ tấn công không biết email nào đã đăng ký)
+    public String forgotPassword(String email) {
+        // 1. Tìm user bằng Optional. KHÔNG dùng orElseThrow() để tránh văng lỗi làm lộ thông tin.
         Optional<NguoiDung> userOpt = nguoiDungRepository.findByEmail(email);
 
+        // 2. Chỉ thực hiện tạo và gửi OTP nếu email thực sự tồn tại dưới Database
         if (userOpt.isPresent()) {
             NguoiDung user = userOpt.get();
 
-            // [SỬA] Dùng SecureRandom thay cho Random — tránh bị predict OTP
+            // (Đoạn này giữ nguyên logic cũ của em, nhớ dùng SECURE_RANDOM ở task trước nhé)
             String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
             user.setMaOtp(otp);
-            user.setOtpHetHan(LocalDateTime.now().plusMinutes(15));
+            user.setOtpHetHan(LocalDateTime.now().plusMinutes(5)); // Ví dụ OTP sống 5 phút
             nguoiDungRepository.save(user);
 
-            // Gửi email
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("[Tiệm Bánh 3D] Mã xác nhận khôi phục mật khẩu");
-            message.setText("Mã OTP của bạn là: " + otp + " (Có hiệu lực trong 15 phút). Vui lòng không chia sẻ mã này.");
-            mailSender.send(message);
+            // Gọi service gửi email ở đây...
+            // emailService.sendPasswordResetOtp(user.getEmail(), otp);
         }
 
-        // [SỬA] Luôn trả về bình thường dù email có tồn tại hay không
-        // Response thống nhất được trả về ở Controller
+        // 3. POKER FACE: Luôn luôn trả về đúng 1 câu này, bất kể lệnh if ở trên có chạy hay không!
+        return "Nếu email tồn tại trong hệ thống, mã OTP đã được gửi đến hộp thư của bạn.";
     }
 
     // T010: Đặt lại mật khẩu mới bằng OTP

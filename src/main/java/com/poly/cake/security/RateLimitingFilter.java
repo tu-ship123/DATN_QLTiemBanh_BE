@@ -18,7 +18,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // Bộ nhớ đệm lưu IP và thông tin request (Thread-safe)
     private final Map<String, RequestInfo> requestCounts = new ConcurrentHashMap<>();
 
-    private static final int MAX_REQUESTS_PER_MINUTE = 5; // Giới hạn 100 req/phút
+    private static final int MAX_REQUESTS_PER_MINUTE = 100; // Giới hạn 100 req/phút
     private static final long ONE_MINUTE_IN_MILLIS = 60000; // 1 phút = 60.000 ms
 
     @Override
@@ -71,5 +71,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             this.startTime = startTime;
             this.count = count;
         }
+    }
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+
+        // Cấp "thẻ miễn tử" (bỏ qua Rate Limit) cho các API công khai phục vụ hiển thị giao diện
+        return path.startsWith("/api/v1/products")
+                || path.startsWith("/api/v1/categories")
+                || path.startsWith("/ws-bakery") // Bỏ qua luôn cho WebSocket (nếu có)
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs");
     }
 }

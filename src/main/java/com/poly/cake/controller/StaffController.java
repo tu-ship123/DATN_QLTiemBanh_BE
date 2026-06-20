@@ -6,6 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.poly.cake.dto.StaffDto;
+import jakarta.validation.Valid;
+import com.poly.cake.dto.StaffDto;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/admin/staff")
@@ -21,18 +25,14 @@ public class StaffController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createStaff(@RequestBody NguoiDung staff) {
-        try {
-            return ResponseEntity.ok(staffService.createStaff(staff));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<?> createStaff(@Valid @RequestBody StaffDto.CreateRequest request) {
+        // Không cần try-catch nữa! GlobalExceptionHandler sẽ tự bắt lỗi nếu có.
+        return ResponseEntity.ok(staffService.createStaff(request));
     }
-
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateStaff(@PathVariable Long id, @RequestBody NguoiDung staffDetails) {
+    public ResponseEntity<?> updateStaff(@PathVariable Long id, @Valid @RequestBody StaffDto.UpdateRequest request) {
         try {
-            return ResponseEntity.ok(staffService.updateStaff(id, staffDetails));
+            return ResponseEntity.ok(staffService.updateStaff(id, request));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

@@ -38,9 +38,9 @@ public class PosOrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
 
         // 2. Xác định khách hàng (Nếu trống gán về khách vãng lai)
-        String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isEmpty()) 
+        String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isEmpty())
                 ? "khachvanglai@gmail.com" : request.getEmailKhachHang();
-        
+
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng mặc định dưới DB!"));
 
@@ -69,12 +69,12 @@ public class PosOrderService {
             SanPham sanPham = sanPhamRepository.findById(item.getSanPhamId())
                     .orElseThrow(() -> new RuntimeException("Sản phẩm mã " + item.getSanPhamId() + " không tồn tại!"));
 
-            // [MỚI THÊM]: Kiểm tra và trừ số lượng tồn kho
-            if (sanPham.getSoLuongTon() < item.getSoLuong()) {
-                throw new RuntimeException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho! Hiện còn: " + sanPham.getSoLuongTon());
+            // [ĐÃ SỬA]: Chống Race Condition bằng Atomic Update trực tiếp dưới DB
+            int updatedRows = sanPhamRepository.truSoLuongTon(item.getSanPhamId(), item.getSoLuong());
+
+            if (updatedRows == 0) {
+                throw new RuntimeException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho lúc này!");
             }
-            sanPham.setSoLuongTon(sanPham.getSoLuongTon() - item.getSoLuong());
-            sanPhamRepository.save(sanPham);
 
             // Tính tiền món
             BigDecimal itemTotal = sanPham.getDonGia().multiply(BigDecimal.valueOf(item.getSoLuong()));
@@ -89,7 +89,7 @@ public class PosOrderService {
             chiTietList.add(chiTiet);
 
             // Format dòng in hóa đơn: Tên bánh x Số lượng -> Thành tiền
-            receiptItems.append(String.format("%-18s x%d   %s\n", 
+            receiptItems.append(String.format("%-18s x%d   %s\n",
                     sanPham.getTenSanPham(), item.getSoLuong(), itemTotal.toString()));
         }
 
@@ -98,12 +98,11 @@ public class PosOrderService {
         donHangRepository.save(savedDonHang);
 
         // 5. TÍCH HỢP VIETQR (Bắn link ảnh QR động thông qua dịch vụ miễn phí của VietQR.io)
-        // Cấu trúc: https://img.vietqr.io/image/<BANK_ID>-<ACCOUNT_NO>-<TEMPLATE>.png?amount=<AMOUNT>&addInfo=<INFO>
-        String bankId = "vcb"; // Thay bằng ngân hàng của tiệm, ví dụ: vcb, mbb, tcb...
-        String accountNo = "1234567890"; // Thay bằng số tài khoản thật của tiệm bánh
-        String template = "qr_only"; // Chỉ lấy vùng QR cho gọn giao diện quầy
+        String bankId = "vcb";
+        String accountNo = "1234567890";
+        String template = "qr_only";
         String addInfo = "PAY_POS_HD" + savedDonHang.getId();
-        
+
         String vietQrUrl = String.format("https://img.vietqr.io/image/%s-%s-%s.png?amount=%s&addInfo=%s",
                 bankId, accountNo, template, totalAmount.toBigInteger().toString(), addInfo);
 
@@ -126,17 +125,17 @@ public class PosOrderService {
     private String buildReceiptTemplate(DonHang donHang, String itemsText, String tenNhanVien) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         return "======= TIỆM BÁNH POLY CAKE =======" + "\n" +
-               "Đ/C: Toà nhà FPT Polytechnic, HCM" + "\n" +
-               "HÓA ĐƠN BÁN HÀNG TẠI QUẦY" + "\n" +
-               "-----------------------------------" + "\n" +
-               "Mã HD: HD-POS-" + donHang.getId() + "\n" +
-               "Ngày: " + LocalDateTime.now().format(formatter) + "\n" +
-               "Thu ngân: " + tenNhanVien + "\n" +
-               "-----------------------------------" + "\n" +
-               itemsText +
-               "-----------------------------------" + "\n" +
-               "TỔNG TIỀN: " + donHang.getTongTien().toString() + " VND\n" +
-               "===================================" + "\n" +
-               "  CẢM ƠN QUÝ KHÁCH - HẸN GẶP LẠI!  " + "\n";
+                "Đ/C: Toà nhà FPT Polytechnic, HCM" + "\n" +
+                "HÓA ĐƠN BÁN HÀNG TẠI QUẦY" + "\n" +
+                "-----------------------------------" + "\n" +
+                "Mã HD: HD-POS-" + donHang.getId() + "\n" +
+                "Ngày: " + LocalDateTime.now().format(formatter) + "\n" +
+                "Thu ngân: " + tenNhanVien + "\n" +
+                "-----------------------------------" + "\n" +
+                itemsText +
+                "-----------------------------------" + "\n" +
+                "TỔNG TIỀN: " + donHang.getTongTien().toString() + " VND\n" +
+                "===================================" + "\n" +
+                "  CẢM ƠN QUÝ KHÁCH - HẸN GẶP LẠI!  " + "\n";
     }
 }
