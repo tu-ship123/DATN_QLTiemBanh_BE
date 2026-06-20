@@ -1,84 +1,135 @@
 package com.poly.cake.service;
 
+import com.poly.cake.dto.StaffCheckinRequest;
+import com.poly.cake.dto.ChamCongResponse;
 import com.poly.cake.entity.ChamCong;
+import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.PhanCa;
 import com.poly.cake.repository.ChamCongRepository;
+import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.PhanCaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import java.time.LocalDate;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 
 @Service
+@RequiredArgsConstructor
 public class ChamCongService {
 
-    @Autowired private PhanCaRepository phanCaRepository;
-    @Autowired private ChamCongRepository chamCongRepository;
+    private final ChamCongRepository chamCongRepository;
+    private final PhanCaRepository phanCaRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    // 1. Logic xử lý Check-in (Vào ca)
-    public ChamCong checkIn(Long nhanVienId) {
-        LocalDate homNay = LocalDate.now();
-
-        // Tìm lịch phân ca của nhân viên trong ngày hôm nay
-        PhanCa phanCa = phanCaRepository.findAll().stream()
-                .filter(pc -> pc.getNhanVien().getId().equals(nhanVienId)
-                        && pc.getNgayLamViec().equals(homNay)
-                        && "DA_LAP".equals(pc.getTrangThai()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Hôm nay bạn không có lịch phân ca làm việc!"));
-
-        // Tránh trường hợp một ca làm việc bấm Check-in 2 lần
-        if (chamCongRepository.findByPhanCa(phanCa).isPresent()) {
-            throw new RuntimeException("Bạn đã check-in ca làm việc này rồi!");
-        }
-
-        LocalTime gioHienTai = LocalTime.now();
-        LocalTime gioBatDauCa = phanCa.getCaLamViec().getGioBatDau();
-
-        ChamCong chamCong = new ChamCong();
-        chamCong.setPhanCa(phanCa);
-        chamCong.setGioVao(LocalDateTime.now());
-
-        // Thuật toán kiểm tra đi muộn
-        if (gioHienTai.isAfter(gioBatDauCa)) {
-            long phutTre = ChronoUnit.MINUTES.between(gioBatDauCa, gioHienTai);
-            chamCong.setPhutDiTre((int) phutTre);
-            chamCong.setTrangThai("DI_TRE");
-        } else {
-            chamCong.setPhutDiTre(0);
-            chamCong.setTrangThai("DUNG_GIO");
-        }
-
-        return chamCongRepository.save(chamCong);
+    // Lấy nhân viên đang đăng nhập
+    private NguoiDung getNhanVienHienTai() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return nguoiDungRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
     }
 
-    // 2. Logic xử lý Check-out (Ra ca)
-    public ChamCong checkOut(Long nhanVienId) {
-        LocalDate homNay = LocalDate.now();
+    /**
+     * CHECK-IN: Nhân viên chọn ca đã phân, ghi nhận giờ vào, tính phút đi trễ
+     */
+    @Transactional
+    public ChamCongResponse checkIn(StaffCheckinRequest request) {
+        System.out.println("DEBUG: phanCaId từ request là: " + request.getPhanCaId());
 
-        PhanCa phanCa = phanCaRepository.findAll().stream()
-                .filter(pc -> pc.getNhanVien().getId().equals(nhanVienId) && pc.getNgayLamViec().equals(homNay))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch phân ca hôm nay để tiến hành ra ca!"));
+        NguoiDung nhanVien = getNhanVienHienTai();
+        System.out.println("DEBUG: ID nhân viên hiện tại là: " + nhanVien.getId());
+        // ------------------------------
 
-        ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
-                .orElseThrow(() -> new RuntimeException("Bạn chưa bấm Check-in đầu giờ, không thể Check-out!"));
+        // Tìm phân ca theo id và đảm bảo là ca của nhân viên này
+        PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(request.getPhanCaId(), nhanVien.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
 
-        if (chamCong.getGioRa() != null) {
-            throw new RuntimeException("Bạn đã check-out ca làm việc này rồi!");
+        // Kiểm tra trạng thái phân ca
+        if ("DA_HUY".equals(phanCa.getTrangThai())) {
+            throw new RuntimeException("Ca làm việc này đã bị hủy");
         }
 
-        chamCong.setGioRa(LocalDateTime.now());
+        // Kiểm tra đã check-in chưa
+        if (chamCongRepository.existsByPhanCa(phanCa)) {
+            throw new RuntimeException("Bạn đã check-in ca này rồi");
+        }
 
-        // Kiểm tra xem nhân viên có về sớm hơn giờ kết thúc ca hay không
-        LocalTime gioHienTai = LocalTime.now();
+        LocalDateTime gioVaoThucTe = LocalDateTime.now();
+        LocalTime gioBatDauCa = phanCa.getCaLamViec().getGioBatDau();
+        LocalTime gioVaoTime = gioVaoThucTe.toLocalTime();
+
+        // Tính phút đi trễ
+        int phutDiTre = 0;
+        String trangThai = "DUNG_GIO";
+
+        if (gioVaoTime.isAfter(gioBatDauCa)) {
+            phutDiTre = (int) ChronoUnit.MINUTES.between(gioBatDauCa, gioVaoTime);
+            trangThai = "DI_TRE";
+        }
+
+        ChamCong chamCong = ChamCong.builder()
+                .phanCa(phanCa)
+                .gioVao(gioVaoThucTe)
+                .phutDiTre(phutDiTre)
+                .trangThai(trangThai)
+                .build();
+
+        chamCong = chamCongRepository.save(chamCong);
+
+        // Cập nhật trạng thái phân ca thành XAC_NHAN
+        phanCa.setTrangThai("XAC_NHAN");
+        phanCaRepository.save(phanCa);
+
+        return mapToResponse(chamCong);
+    }
+
+    /**
+     * CHECK-OUT: Chốt giờ ra, cập nhật trạng thái nếu về sớm
+     */
+
+    @Transactional
+    public ChamCongResponse checkOut(Long phanCaId) {
+
+        NguoiDung nhanVien = getNhanVienHienTai();
+
+        PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(phanCaId, nhanVien.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
+
+        ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
+                .orElseThrow(() -> new RuntimeException("Bạn chưa check-in ca này"));
+
+        if (chamCong.getGioRa() != null) {
+            throw new RuntimeException("Bạn đã check-out ca này rồi");
+        }
+
+        LocalDateTime gioRaThucTe = LocalDateTime.now();
         LocalTime gioKetThucCa = phanCa.getCaLamViec().getGioKetThuc();
-        if (gioHienTai.isBefore(gioKetThucCa)) {
+        LocalTime gioRaTime = gioRaThucTe.toLocalTime();
+
+        chamCong.setGioRa(gioRaThucTe);
+
+        // Kiểm tra về sớm
+        if (gioRaTime.isBefore(gioKetThucCa) && "DUNG_GIO".equals(chamCong.getTrangThai())) {
             chamCong.setTrangThai("VE_SOM");
         }
 
-        return chamCongRepository.save(chamCong);
+        chamCong = chamCongRepository.save(chamCong);
+        return mapToResponse(chamCong);
+    }
+
+    private ChamCongResponse mapToResponse(ChamCong cc) {
+        return ChamCongResponse.builder()
+                .id(cc.getId())
+                .phanCaId(cc.getPhanCa().getId())
+                .tenCa(cc.getPhanCa().getCaLamViec().getTenCa())
+                .ngayLamViec(cc.getPhanCa().getNgayLamViec().toString())
+                .gioVao(cc.getGioVao())
+                .gioRa(cc.getGioRa())
+                .phutDiTre(cc.getPhutDiTre())
+                .trangThai(cc.getTrangThai())
+                .build();
     }
 }

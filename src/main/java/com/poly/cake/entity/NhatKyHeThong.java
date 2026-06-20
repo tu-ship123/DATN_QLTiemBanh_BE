@@ -3,6 +3,8 @@ package com.poly.cake.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "nhat_ky_he_thong")
 @Getter
@@ -33,4 +35,12 @@ public class NhatKyHeThong {
 
     @Column(columnDefinition = "TEXT")
     private String giaTriMoi;
+
+    @Column(nullable = false)
+    private LocalDateTime ngayTao;
+
+    @PrePersist
+    protected void onCreate() {
+        ngayTao = LocalDateTime.now();
+    }
 }
