@@ -36,7 +36,8 @@ public class NhatKyHeThong {
     @Column(columnDefinition = "TEXT")
     private String giaTriMoi;
 
-    @Column(nullable = false)
+    // [ĐÃ SỬA]: Đổi sang nullable = true để tránh lỗi SQL Server khi bảng cũ đã có dữ liệu
+    @Column(name = "ngay_tao", nullable = true) 
     private LocalDateTime ngayTao;
 
     @PrePersist

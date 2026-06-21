@@ -26,5 +26,6 @@ spring:
     username: vegetableshop88@gmail.com # ĐIỀN EMAIL CỦA BẠN VÀO ĐÂY
     password: "ixsakgqijctydtlo" # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY
 
-    sepay:
-      webhook-token: "PolyCakeSecured2026" # Lát nữa cấu hình trên web SePay sẽ dùng chuỗi này
+# [ĐÃ SỬA]: Đưa sepay ra ngoài cùng cấp gốc (bằng cấp với server và spring)
+sepay:
+  webhook-token: "PolyCakeSecured2026"
