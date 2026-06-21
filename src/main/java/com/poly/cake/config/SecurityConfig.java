@@ -36,6 +36,7 @@ public class SecurityConfig {
 
                 // CẤU HÌNH PHÂN QUYỀN API
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyRole("ADMIN", "NHAN_VIEN")
