@@ -30,6 +30,7 @@ public class GioHang {
     private LocalDateTime ngayCapNhat;
 
     @OneToMany(mappedBy = "gioHang", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<ChiTietGioHang> chiTietGioHangs = new ArrayList<>();
 
     @PrePersist
