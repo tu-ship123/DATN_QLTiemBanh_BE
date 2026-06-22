@@ -23,7 +23,7 @@ public class OrderController {
 
     // 1. API ĐẶT HÀNG (CHECKOUT) - Chỉ dành cho Khách hàng
     @PostMapping
-    @PreAuthorize("hasRole('KHACH_HANG')")
+    @PreAuthorize("hasAuthority('KHACH_HANG')")
     public ResponseEntity<?> checkout(@Valid @RequestBody OrderDto.Request request, Authentication authentication) {
         try {
             String email = authentication.getName();
