@@ -49,7 +49,7 @@ public class SecurityConfig {
                         // Đã sửa thành hasAnyAuthority để bao trọn cả trường hợp có và không có tiền tố ROLE_
                         .requestMatchers("/api/v1/admin/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN", "NHAN_VIEN", "ROLE_NHAN_VIEN")
-                        .requestMatchers("/api/v1/cart/**", "/api/v1/orders/**").hasAnyAuthority("KHACH_HANG", "ROLE_KHACH_HANG", "ADMIN", "ROLE_ADMIN", "NHAN_VIEN", "ROLE_NHAN_VIEN")
+                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**").hasAnyAuthority("KHACH_HANG", "ROLE_KHACH_HANG", "ADMIN", "ROLE_ADMIN", "NHAN_VIEN", "ROLE_NHAN_VIEN")
                         
                         .anyRequest().authenticated()
                 )
