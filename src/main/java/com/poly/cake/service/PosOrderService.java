@@ -37,12 +37,12 @@ public class PosOrderService {
         NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
 
-        // 2. Xác định khách hàng (Nếu trống gán về khách vãng lai)
-        String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isEmpty())
-                ? "khachvanglai@gmail.com" : request.getEmailKhachHang();
+        // 2. Xác định khách hàng (Nếu trống thì dùng email của nhân viên đang xử lý đơn)
+        String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isBlank())
+                ? emailNhanVien : request.getEmailKhachHang();
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng mặc định dưới DB!"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng với email: " + emailKhach));
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new RuntimeException("Hóa đơn phải có ít nhất 1 sản phẩm!");

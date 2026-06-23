@@ -112,7 +112,7 @@ CREATE TABLE [don_hang] (
   [khach_hang_id] bigint NOT NULL,
   [nhan_vien_id] bigint,
   [ma_giam_gia_id] bigint,
-  [trang_thai] nvarchar(255) NOT NULL CHECK ([trang_thai] IN ('CHO_XAC_NHAN', 'DA_XAC_NHAN', 'DANG_LAM', 'SAN_SANG', 'DA_GIAO', 'DA_HUY')) DEFAULT 'CHO_XAC_NHAN',
+  [trang_thai] nvarchar(255) NOT NULL CHECK ([trang_thai] IN ('CHO_XAC_NHAN', 'DA_XAC_NHAN', 'DANG_LAM', 'SAN_SANG', 'DANG_GIAO', 'HOAN_THANH', 'DA_HUY')) DEFAULT 'CHO_XAC_NHAN',
   [tong_tien] decimal(12,2) NOT NULL,
   [so_tien_coc] decimal(12,2) DEFAULT (0),
   [thiet_ke_banh_json] text,

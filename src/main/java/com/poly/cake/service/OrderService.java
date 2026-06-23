@@ -131,7 +131,7 @@ public class OrderService {
 
 
         // [SỬA LỖI 14]: Chặn lùi trạng thái đơn hàng
-        if (trangThaiHienTai.equals("DA_GIAO") || trangThaiHienTai.equals("DA_HUY") || trangThaiHienTai.equals("DA_HOAN_TIEN")) {
+        if (trangThaiHienTai.equals("HOAN_THANH") || trangThaiHienTai.equals("DA_HUY")) {
             throw new BusinessException("Đơn hàng đã chốt (Giao/Hủy/Hoàn tiền) thì không thể thay đổi trạng thái được nữa!");
         }
 
