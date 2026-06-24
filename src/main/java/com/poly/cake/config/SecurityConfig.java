@@ -35,48 +35,41 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // 1. Kích hoạt CORS chuẩn xác
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // CẤU HÌNH PHÂN QUYỀN API
                 .authorizeHttpRequests(auth -> auth
-                        // 2. [QUAN TRỌNG] Cho phép tất cả các request thăm dò (OPTIONS) được đi qua mượt mà
+                        // Cho phép tất cả OPTIONS (CORS preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // Các endpoint công khai
                         .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
-                        
-                        // Đã sửa thành hasAnyAuthority để bao trọn cả trường hợp có và không có tiền tố ROLE_
-                        .requestMatchers("/api/v1/admin/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
-                        .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN", "NHAN_VIEN", "ROLE_NHAN_VIEN")
-                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**").hasAnyAuthority("KHACH_HANG", "ROLE_KHACH_HANG", "ADMIN", "ROLE_ADMIN", "NHAN_VIEN", "ROLE_NHAN_VIEN")
-                        
+
+                        // Phân quyền theo ROLE_ prefix (nhất quán với CustomUserDetailsService + JwtUtil)
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyRole("ADMIN", "NHAN_VIEN")
+                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
+                            .hasAnyRole("KHACH_HANG", "ADMIN", "NHAN_VIEN")
+
                         .anyRequest().authenticated()
                 )
 
-                // XỬ LÝ NGOẠI LỆ
                 .exceptionHandling(customizer ->
                         customizer.accessDeniedHandler(new CustomAccessDeniedHandler())
                 )
 
-                // CẤU HÌNH FILTER
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
-
-                // Gắn "Bảo vệ cổng" chống Spam lên trước tiên, sau đó mới đến kiểm tra Token
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // 3. Cấu hình chi tiết CORS cho Frontend Vue.js (Bao quát 100%)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        
-        // Dùng OriginPatterns để hốt trọn cả localhost lẫn 127.0.0.1 ở mọi cổng
         config.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

@@ -23,7 +23,7 @@ public class OrderController {
 
     // 1. API ĐẶT HÀNG (CHECKOUT) - Chỉ dành cho Khách hàng
     @PostMapping
-    @PreAuthorize("hasAuthority('KHACH_HANG')")
+    @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> checkout(@Valid @RequestBody OrderDto.Request request, Authentication authentication) {
         try {
             String email = authentication.getName();
@@ -42,7 +42,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByUser(email));
     }
 
-    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID - Ai cũng có quyền xem (Khách xem đơn của họ, Admin/Staff xem để xử lý)
+    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('KHACH_HANG', 'ADMIN', 'NHAN_VIEN')")
     public ResponseEntity<?> getOrderById(@PathVariable Long id) {
@@ -60,14 +60,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
-    // 5. API XỬ LÝ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN có quyền thao tác (Gửi body JSON)
+    // 5. API XỬ LÝ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN có quyền thao tác
     @PutMapping("/{id}/process")
     @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
     public ResponseEntity<?> processOrder(@PathVariable Long id, @Valid @RequestBody OrderProcessDto request, Authentication authentication) {
         try {
-            // Lấy email của Admin/Nhân viên đang log in thao tác
             String emailNhanVien = authentication.getName();
-            
             OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
             return ResponseEntity.ok(updatedOrder);
         } catch (Exception e) {
@@ -87,12 +85,13 @@ public class OrderController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // 7. API LẤY DỮ LIỆU THIẾT KẾ 3D
     @GetMapping("/{id}/design")
     @PreAuthorize("hasAnyRole('NHAN_VIEN', 'ADMIN', 'KHACH_HANG')")
     @Operation(summary = "Lấy dữ liệu thiết kế 3D của đơn hàng",
             description = "Trả về cấu trúc JSON đầy đủ để Frontend render Three.js popup")
     public ResponseEntity<?> getOrder3DDesign(@PathVariable Long id) {
-        // Gọi hàm bên Service và trả về luôn
         return ResponseEntity.ok(orderService.get3DCakeDesign(id));
     }
 }

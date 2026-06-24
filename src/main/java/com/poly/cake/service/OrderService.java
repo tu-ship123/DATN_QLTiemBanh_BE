@@ -6,10 +6,12 @@ import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.ThanhToan;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import com.poly.cake.repository.ThanhToanRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.poly.cake.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -39,6 +42,9 @@ public class OrderService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private ThanhToanRepository thanhToanRepository;
 
     // 1. TẠO ĐƠN HÀNG (CHECKOUT)
     @Transactional
@@ -258,5 +264,29 @@ public class OrderService {
         } catch (Exception e) {
             throw new RuntimeException("Lỗi khi parse dữ liệu 3D Design: " + e.getMessage());
         }
+    }
+
+    // ===== SEPAY WEBHOOK: CẬP NHẬT TRẠNG THÁI SAU KHI THANH TOÁN =====
+    @Transactional
+    public void updatePaymentStatus(Long orderId) {
+        // 1. Tìm đơn hàng
+        DonHang donHang = donHangRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+
+        // 2. Cập nhật bảng thanh_toan -> THANH_CONG (nếu tồn tại)
+        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
+            tt.setTrangThai("THANH_CONG");
+            tt.setThoiDiemThanhToan(LocalDateTime.now());
+            thanhToanRepository.save(tt);
+        });
+
+        // 3. Cập nhật trạng thái đơn hàng -> DA_XAC_NHAN
+        donHang.setTrangThai("DA_XAC_NHAN");
+        donHangRepository.save(donHang);
+
+        // 4. Thông báo cho admin
+        notificationService.notifyNewOrderToAdmins(
+                "✅ Đơn hàng DH" + orderId + " đã thanh toán qua SePay, chuyển sang DA_XAC_NHAN!"
+        );
     }
 }

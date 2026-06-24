@@ -35,17 +35,17 @@ public class PaymentController {
         if ("in".equalsIgnoreCase(request.getTransferType())) {
             String content = request.getContent();
 
-            // 3. Bóc tách nội dung chuyển khoản tìm chữ "PC" (PolyCake)
-            if (content != null && content.contains("PC")) {
+            // 3. Bóc tách nội dung chuyển khoản tìm chữ "DH" (DonHang)
+            if (content != null && content.contains("DH")) {
                 try {
-                    // Lấy con số đằng sau chữ PC (Ví dụ: "PC1234" -> "1234")
-                    String orderIdStr = content.substring(content.indexOf("PC") + 2).trim().split(" ")[0];
+                    // Lấy con số đằng sau chữ DH (Ví dụ: "DH1234" -> "1234")
+                    String orderIdStr = content.substring(content.indexOf("DH") + 2).trim().split(" ")[0];
                     Long orderId = Long.parseLong(orderIdStr);
 
-                    log.info("Thành công: Nhận {} VNĐ cho đơn hàng PC{}", request.getTransferAmount(), orderId);
+                    log.info("Thành công: Nhận {} VNĐ cho đơn hàng DH{}", request.getTransferAmount(), orderId);
 
-                    // 4. Gọi Service cập nhật đơn hàng thành ĐÃ THANH TOÁN
-                    // orderService.updatePaymentStatus(orderId, "DA_THANH_TOAN");
+                    // 4. Cập nhật trạng thái đơn hàng và thanh toán
+                    orderService.updatePaymentStatus(orderId);
 
                 } catch (Exception e) {
                     log.error("Không thể lấy ID đơn hàng từ nội dung: {}", content);
