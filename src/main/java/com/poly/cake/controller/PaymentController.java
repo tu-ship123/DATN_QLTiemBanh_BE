@@ -26,7 +26,7 @@ public class PaymentController {
             @RequestBody SePayWebhookDto request) {
 
         // 1. Kiểm tra "Mật khẩu" (Token) xem có đúng là SePay gọi không
-        if (authHeader == null || !authHeader.replace("Bearer ", "").trim().equals(sepayToken)) {
+        if (authHeader == null || !authHeader.replace("Apikey ", "").trim().equals(sepayToken)) {
             log.warn("Cảnh báo: Có người gọi Webhook SePay nhưng sai Token!");
             return ResponseEntity.status(403).body("Sai mã xác thực Webhook!");
         }
