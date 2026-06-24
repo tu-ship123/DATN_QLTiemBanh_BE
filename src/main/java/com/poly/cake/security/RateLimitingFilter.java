@@ -79,6 +79,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         // Cấp "thẻ miễn tử" (bỏ qua Rate Limit) cho các API công khai phục vụ hiển thị giao diện
         return path.startsWith("/api/v1/products")
                 || path.startsWith("/api/v1/categories")
+                || path.startsWith("/api/v1/auth")  
                 || path.startsWith("/ws-bakery") // Bỏ qua luôn cho WebSocket (nếu có)
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs");

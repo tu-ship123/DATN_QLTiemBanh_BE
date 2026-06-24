@@ -14,29 +14,28 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/orders")
-@PreAuthorize("hasRole('ADMIN')")
+
 public class AdminOrderController {
 
     @Autowired
     private AdminOrderService adminOrderService;
 
-    // ── CŨ ──────────────────────────────────────────────────────────────────────
-
-    // 1. GET: Lọc đơn hàng nâng cao
+    // 1. GET: Lọc đơn hàng nâng cao (Dùng param trên URL)
     @GetMapping
     public ResponseEntity<List<OrderDto.Response>> filterOrders(
             @RequestParam(required = false) String trangThai,
             @RequestParam(required = false) String nguonDon,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime tuNgay,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime denNgay) {
+        
         return ResponseEntity.ok(adminOrderService.getFilteredOrders(trangThai, nguonDon, tuNgay, denNgay));
     }
 
     // 2. PUT: Override trạng thái + Audit log
     @PutMapping("/{id}/override")
-    public ResponseEntity<?> overrideOrder(@PathVariable Long id,
-                                           @RequestParam String trangThaiMoi,
-                                           @RequestParam(required = false) String lyDo,
+    public ResponseEntity<?> overrideOrder(@PathVariable Long id, 
+                                           @RequestParam String trangThaiMoi, 
+                                           @RequestParam(required = false) String lyDo, 
                                            Authentication authentication) {
         try {
             return ResponseEntity.ok(adminOrderService.overrideOrderStatus(id, trangThaiMoi, lyDo, authentication.getName()));
@@ -47,8 +46,8 @@ public class AdminOrderController {
 
     // 3. POST: Refund - Hoàn tiền
     @PostMapping("/{id}/refund")
-    public ResponseEntity<?> refundOrder(@PathVariable Long id,
-                                         @RequestParam String lyDo,
+    public ResponseEntity<?> refundOrder(@PathVariable Long id, 
+                                         @RequestParam String lyDo, 
                                          Authentication authentication) {
         try {
             return ResponseEntity.ok(adminOrderService.refundOrder(id, lyDo, authentication.getName()));
@@ -59,49 +58,12 @@ public class AdminOrderController {
 
     // 4. DELETE: Hủy đơn ép buộc & Rollback Kho Hàng
     @DeleteMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelAndRollback(@PathVariable Long id,
-                                               @RequestParam String lyDo,
+    public ResponseEntity<?> cancelAndRollback(@PathVariable Long id, 
+                                               @RequestParam String lyDo, 
                                                Authentication authentication) {
         try {
             adminOrderService.cancelAndRollbackInventory(id, lyDo, authentication.getName());
             return ResponseEntity.ok("Đã hủy đơn hàng HD-" + id + " và hoàn trả số lượng về kho thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // ── MỚI ─────────────────────────────────────────────────────────────────────
-
-    // 5. PUT: Chỉnh sửa thông tin đơn hàng (địa chỉ, SĐT, ngày giao, ghi chú)
-    @PutMapping("/{id}/update")
-    public ResponseEntity<?> updateOrderInfo(@PathVariable Long id,
-                                             @RequestBody OrderDto.UpdateRequest request,
-                                             Authentication authentication) {
-        try {
-            return ResponseEntity.ok(adminOrderService.updateOrderInfo(id, request, authentication.getName()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // 6. PUT: Đổi trạng thái theo flow chuẩn (có validate thứ tự)
-    @PutMapping("/{id}/status")
-    public ResponseEntity<?> changeStatus(@PathVariable Long id,
-                                          @RequestParam String trangThaiMoi,
-                                          @RequestParam(required = false) String lyDoHuy,
-                                          Authentication authentication) {
-        try {
-            return ResponseEntity.ok(adminOrderService.changeOrderStatus(id, trangThaiMoi, lyDoHuy, authentication.getName()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // 7. GET: Lấy dữ liệu in đơn đầy đủ
-    @GetMapping("/{id}/print")
-    public ResponseEntity<?> getPrintData(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(adminOrderService.getPrintData(id));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

@@ -19,8 +19,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/v1/admin/products")
-@PreAuthorize("hasRole('ADMIN')")
+// 👉 BẠN XÓA HẲN DÒNG @PreAuthorize... Ở VỊ TRÍ NÀY ĐI NHÉ
 public class AdminSanPhamController {
+    // ...
+
 
     @Autowired
     private AdminSanPhamService adminSanPhamService;
