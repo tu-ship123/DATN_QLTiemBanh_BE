@@ -7,7 +7,7 @@ import java.util.List;
 
 public class OrderDto {
 
-    // 1. DTO dùng để NHẬN dữ liệu từ Frontend gửi lên (Request)
+    // 1. DTO nhận dữ liệu tạo đơn từ FE (Request)
     @Data
     public static class Request {
         private String diaChiGiaoHang;
@@ -24,7 +24,7 @@ public class OrderDto {
         private Double donGia;
     }
 
-    // 2. DTO dùng để TRẢ dữ liệu về cho Frontend (Response)
+    // 2. DTO trả dữ liệu về FE (Response)
     @Data
     public static class Response {
         private Long id;
@@ -38,11 +38,8 @@ public class OrderDto {
         private String trangThai;
         private String ghiChu;
         private String emailNguoiDung;
-        
-        // Mới thêm: Trả về thông tin Nhân viên xử lý và Lý do hủy
         private String tenNhanVienPhuTrach;
         private String lyDoHuy;
-        
         private List<OrderItemResponse> items;
     }
 
@@ -52,5 +49,50 @@ public class OrderDto {
         private String tenSanPham;
         private Integer soLuong;
         private Double giaBan;
+    }
+
+    // ── MỚI 5: DTO chỉnh sửa thông tin đơn ────────────────────────────────────
+    @Data
+    public static class UpdateRequest {
+        private String diaChiGiaoHang;  // Cho phép null = không đổi
+        private String soDienThoai;
+        private LocalDate ngayGiaoHang;
+        private String ghiChu;
+    }
+
+    // ── MỚI 7: DTO dữ liệu in đơn ─────────────────────────────────────────────
+    @Data
+    public static class PrintResponse {
+        // Thông tin đơn hàng
+        private Long id;
+        private String maDonHang;
+        private String trangThai;
+        private LocalDateTime ngayTao;
+        private LocalDate ngayGiaoHang;
+        private Double tongTien;
+        private Double soTienCoc;
+        private Double conLai;      // tongTien - soTienCoc
+        private String ghiChu;
+        private String nguonDon;
+
+        // Thông tin khách hàng
+        private String tenKhachHang;
+        private String emailKhachHang;
+        private String sdtKhachHang;
+        private String diaChiGiaoHang;
+
+        // Nhân viên phụ trách
+        private String tenNhanVien;
+
+        // Danh sách sản phẩm
+        private List<PrintItem> items;
+
+        @Data
+        public static class PrintItem {
+            private String tenSanPham;
+            private Integer soLuong;
+            private Double donGia;
+            private Double thanhTien;   // soLuong * donGia
+        }
     }
 }
