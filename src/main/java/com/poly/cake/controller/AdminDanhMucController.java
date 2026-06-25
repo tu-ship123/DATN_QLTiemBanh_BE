@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/categories")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+
 public class AdminDanhMucController {
 
     private final AdminDanhMucService adminDanhMucService;

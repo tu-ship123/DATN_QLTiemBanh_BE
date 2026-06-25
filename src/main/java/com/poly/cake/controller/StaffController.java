@@ -13,7 +13,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/admin/staff")
-@PreAuthorize("hasRole('ADMIN')") // Chỉ Admin mới được quản lý nhân sự
+// Chỉ Admin mới được quản lý nhân sự
 public class StaffController {
 
     @Autowired

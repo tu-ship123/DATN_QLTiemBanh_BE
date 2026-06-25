@@ -46,10 +46,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
 
                         // Phân quyền theo ROLE_ prefix (nhất quán với CustomUserDetailsService + JwtUtil)
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyRole("ADMIN", "NHAN_VIEN")
-                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
-                            .hasAnyRole("KHACH_HANG", "ADMIN", "NHAN_VIEN")
+                        .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
+.requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+.requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
+    .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
 
                         .anyRequest().authenticated()
                 )

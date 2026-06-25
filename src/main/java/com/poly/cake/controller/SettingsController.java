@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/admin/settings")
-@PreAuthorize("hasRole('ADMIN')")
+
 public class SettingsController {
 
     @Autowired

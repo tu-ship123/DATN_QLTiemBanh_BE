@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/v1/admin/audit-logs")
-@PreAuthorize("hasRole('ADMIN')")
+
 public class AuditLogController {
 
     @Autowired
