@@ -14,3 +14,18 @@ VALUES
 (N'Nguyễn Văn Khách', 'khachhang.demo@gmail.com', '$2a$10$PrI5Gk9L.tSZiW9FXhTS8O8Mz9E97k2FZbFvGFFaSsiTUIl.TCrFu', '0934567890', 'KHACH_HANG', 'HOAT_DONG', GETDATE()),
 (N'Lee Sang Hyeok', 'fan.t1.hcm@gmail.com', '$2a$10$PrI5Gk9L.tSZiW9FXhTS8O8Mz9E97k2FZbFvGFFaSsiTUIl.TCrFu', '0945678901', 'KHACH_HANG', 'HOAT_DONG', GETDATE());
 GO
+
+-- Xoá dữ liệu cũ nếu có (để chạy lại an toàn)
+-- TRUNCATE TABLE [ca_lam_viec];  -- Bỏ comment nếu muốn reset
+
+-- Thêm 3 ca chuẩn
+INSERT INTO [ca_lam_viec] ([ten_ca], [gio_bat_dau], [gio_ket_thuc], [hoat_dong])
+VALUES
+  (N'Ca sáng',  '07:00:00', '13:00:00', 1),
+  (N'Ca chiều', '13:00:00', '19:00:00', 1),
+  (N'Ca tối',   '19:00:00', '23:00:00', 1);
+GO
+
+-- Kiểm tra kết quả
+SELECT * FROM [ca_lam_viec];
+GO
