@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.OrderDto;
 import com.poly.cake.service.AdminOrderService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/orders")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
 public class AdminOrderController {
 
     @Autowired
@@ -32,6 +33,7 @@ public class AdminOrderController {
 
     // 2. PUT: Override trạng thái + Audit log
     @PutMapping("/{id}/override")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> overrideOrder(@PathVariable Long id,
                                            @RequestParam String trangThaiMoi,
                                            @RequestParam(required = false) String lyDo,
@@ -45,6 +47,7 @@ public class AdminOrderController {
 
     // 3. POST: Refund - Hoàn tiền
     @PostMapping("/{id}/refund")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> refundOrder(@PathVariable Long id,
                                          @RequestParam String lyDo,
                                          Authentication authentication) {
@@ -57,6 +60,7 @@ public class AdminOrderController {
 
     // 4. DELETE: Hủy đơn ép buộc & Rollback Kho Hàng
     @DeleteMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> cancelAndRollback(@PathVariable Long id,
                                                @RequestParam String lyDo,
                                                Authentication authentication) {
@@ -98,6 +102,26 @@ public class AdminOrderController {
     public ResponseEntity<?> getPrintData(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(adminOrderService.getPrintData(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // T056 – XÁC NHẬN THIẾT KẾ BÁNH 3D
+    // Nhân viên nhấn "Xác nhận thiết kế" → Trừ kho phụ kiện + DANG_LAM + báo khách
+    // ─────────────────────────────────────────────────────────────────────────
+    @PutMapping("/{id}/confirm-design")
+    @Operation(
+        summary = "Xác nhận thiết kế bánh 3D",
+        description = "Nhân viên xác nhận thiết kế → trừ tồn kho phụ kiện trang trí " +
+                      "→ chuyển đơn sang DANG_LAM → thông báo khách hàng. " +
+                      "Chỉ áp dụng cho đơn có thiết kế 3D và đang ở trạng thái DA_XAC_NHAN."
+    )
+    public ResponseEntity<?> confirmDesign(@PathVariable Long id,
+                                           Authentication authentication) {
+        try {
+            return ResponseEntity.ok(adminOrderService.confirmDesign(id, authentication.getName()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
