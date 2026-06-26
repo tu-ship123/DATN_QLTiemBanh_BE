@@ -15,6 +15,13 @@ public class OrderDto {
         private LocalDate ngayGiaoHang;
         private String ghiChu;
         private List<OrderItemRequest> items;
+
+        /**
+         * T055 – Dữ liệu thiết kế bánh 3D (tuỳ chọn).
+         * FE gửi lên dưới dạng chuỗi JSON (stringify của object Three.js).
+         * Nếu đơn không có bánh 3D thì để null.
+         */
+        private String cakeDesignJson;
     }
 
     @Data
@@ -41,6 +48,9 @@ public class OrderDto {
         private String tenNhanVienPhuTrach;
         private String lyDoHuy;
         private List<OrderItemResponse> items;
+
+        /** T055 – Có thiết kế 3D không? (true/false để FE hiện nút "Xem 3D") */
+        private Boolean coThietKe3D;
     }
 
     @Data
@@ -51,19 +61,18 @@ public class OrderDto {
         private Double giaBan;
     }
 
-    // ── MỚI 5: DTO chỉnh sửa thông tin đơn ────────────────────────────────────
+    // ── Chỉnh sửa thông tin đơn ──────────────────────────────────────────────
     @Data
     public static class UpdateRequest {
-        private String diaChiGiaoHang;  // Cho phép null = không đổi
+        private String diaChiGiaoHang;
         private String soDienThoai;
         private LocalDate ngayGiaoHang;
         private String ghiChu;
     }
 
-    // ── MỚI 7: DTO dữ liệu in đơn ─────────────────────────────────────────────
+    // ── Dữ liệu in đơn ───────────────────────────────────────────────────────
     @Data
     public static class PrintResponse {
-        // Thông tin đơn hàng
         private Long id;
         private String maDonHang;
         private String trangThai;
@@ -71,20 +80,17 @@ public class OrderDto {
         private LocalDate ngayGiaoHang;
         private Double tongTien;
         private Double soTienCoc;
-        private Double conLai;      // tongTien - soTienCoc
+        private Double conLai;
         private String ghiChu;
         private String nguonDon;
 
-        // Thông tin khách hàng
         private String tenKhachHang;
         private String emailKhachHang;
         private String sdtKhachHang;
         private String diaChiGiaoHang;
 
-        // Nhân viên phụ trách
         private String tenNhanVien;
 
-        // Danh sách sản phẩm
         private List<PrintItem> items;
 
         @Data
@@ -92,7 +98,7 @@ public class OrderDto {
             private String tenSanPham;
             private Integer soLuong;
             private Double donGia;
-            private Double thanhTien;   // soLuong * donGia
+            private Double thanhTien;
         }
     }
 }

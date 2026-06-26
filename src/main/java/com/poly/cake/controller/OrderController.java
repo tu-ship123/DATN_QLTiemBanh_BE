@@ -1,5 +1,6 @@
 package com.poly.cake.controller;
 
+import com.poly.cake.dto.CakeDesignDto;
 import com.poly.cake.dto.OrderDto;
 import com.poly.cake.dto.OrderProcessDto;
 import com.poly.cake.service.OrderService;
@@ -13,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -20,6 +22,7 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
 
     // 1. API ĐẶT HÀNG (CHECKOUT) - Chỉ dành cho Khách hàng
     @PostMapping
@@ -29,6 +32,26 @@ public class OrderController {
             String email = authentication.getName();
             OrderDto.Response response = orderService.createOrder(request, email);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getLocalizedMessage());
+        }
+    }
+
+    // T055 – VALIDATE THIẾT KẾ 3D TRƯỚC KHI ĐẶT HÀNG
+    // FE gọi ngay tại bước chọn khung để kiểm tra kích thước trước khi next step
+    @PostMapping("/validate-cake-design")
+    @PreAuthorize("hasRole('KHACH_HANG')")
+    @Operation(summary = "Validate thiết kế bánh 3D",
+            description = "FE gọi tại bước chọn khung để kiểm tra JSON hợp lệ chưa (kích thước chiều cao + đường kính)")
+    public ResponseEntity<?> validateCakeDesign(@Valid @RequestBody CakeDesignDto.Request request) {
+        try {
+            CakeDesignDto.KichThuoc kt = request.getKhung().getKich_thuoc();
+            return ResponseEntity.ok(Map.of(
+                    "hopLe",   true,
+                    "tomTat",  String.format("Đường kính %.0f cm × Chiều cao %.0f cm",
+                                             kt.getDuong_kinh_cm(), kt.getChieu_cao_cm()),
+                    "message", "Kích thước hợp lệ! Bạn có thể tiếp tục đặt hàng."
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getLocalizedMessage());
         }
