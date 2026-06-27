@@ -32,22 +32,23 @@ public class AdminOrderService {
 
     // 2. PUT OVERRIDE STATUS + GHI MINI AUDIT LOG
     @Transactional
-    public OrderDto.Response overrideOrderStatus(Long id, String trangThaiMoi, String lyDo, String emailAdmin) {
+    public OrderDto.Response overrideOrderStatus(Long id, TrangThaiDonHang trangThaiMoi, String lyDo, String emailAdmin) {
         DonHang donHang = donHangRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng ID: " + id));
 
         NguoiDung admin = nguoiDungRepository.findByEmail(emailAdmin)
                 .orElseThrow(() -> new ResourceNotFoundException("Lỗi xác thực Admin"));
 
-        String trangThaiCu = donHang.getTrangThai().toString();
-        // Cập nhật trạng thái
-        donHang.setTrangThai(TrangThaiDonHang.valueOf(trangThaiMoi.toUpperCase()));
+        // Lưu lại trạng thái cũ bằng cách gọi .name() để ghi log
+        String trangThaiCu = donHang.getTrangThai().name();
 
-        // Ghi log vào ghi chú
-        appendMiniAuditLog(donHang, admin.getHoTen(), "Ép đổi trạng thái từ " + trangThaiCu + " sang " + trangThaiMoi + ". Lý do: " + lyDo);
+        // Gán trực tiếp Enum mới vào, code siêu sạch và an toàn 100%
+        donHang.setTrangThai(trangThaiMoi);
+
+        appendMiniAuditLog(donHang, admin.getHoTen(), "Ép đổi trạng thái từ " + trangThaiCu + " sang " + trangThaiMoi.name() + ". Lý do: " + lyDo);
 
         DonHang updatedDonHang = donHangRepository.save(donHang);
-        notifyUser(updatedDonHang, "Đơn hàng HD-" + id + " của bạn đã được Admin xử lý: " + trangThaiMoi);
+        notifyUser(updatedDonHang, "Đơn hàng HD-" + id + " của bạn đã được Admin xử lý: " + trangThaiMoi.name());
 
         return mapToResponseDto(updatedDonHang);
     }

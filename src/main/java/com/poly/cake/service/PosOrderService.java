@@ -6,9 +6,10 @@ import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
+import com.poly.cake.repository.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,16 +18,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PosOrderService {
 
-    @Autowired
-    private DonHangRepository donHangRepository;
-    @Autowired
-    private ChiTietDonHangRepository chiTietDonHangRepository;
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final DonHangRepository donHangRepository;
+    private final ChiTietDonHangRepository chiTietDonHangRepository;
+    private final NguoiDungRepository nguoiDungRepository;
+    private final SanPhamRepository sanPhamRepository;
 
     @Transactional
     public PosOrderDto.Response createPosOrder(PosOrderDto.Request request, String emailNhanVien) {

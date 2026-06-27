@@ -2,7 +2,7 @@ package com.poly.cake.service;
 
 import com.poly.cake.dto.StaffDto;
 import com.poly.cake.entity.NguoiDung;
-import com.poly.cake.exception.ResourceNotFoundException; // Đảm bảo em đã tạo Exception này
+import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.repository.NguoiDungRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor // Khuyên dùng thay cho @Autowired trên từng field
+@RequiredArgsConstructor
 public class StaffService {
 
     private final NguoiDungRepository nguoiDungRepository;
@@ -34,22 +34,15 @@ public class StaffService {
     }
     // ---------------------------------------------
 
-    // 1. Lấy danh sách nhân viên (ĐÃ TỐI ƯU HIỆU NĂNG)
+    // 1. Lấy danh sách nhân viên
     public List<StaffDto.Response> getAllStaffs() {
-        // Truy vấn trực tiếp SQL thay vì load toàn bộ bảng NguoiDung lên RAM
         return nguoiDungRepository.findByQuyen("NHAN_VIEN").stream()
-                .map(nd -> new StaffDto.Response(
-                        nd.getId(),
-                        nd.getHoTen(),
-                        nd.getEmail(),
-                        nd.getSoDienThoai(),
-                        nd.getTrangThai()
-                ))
+                .map(this::mapToResponse) // Tái sử dụng hàm mapToResponse cho code gọn gàng
                 .toList();
     }
 
-    // 2. Thêm mới nhân viên (ĐÃ BẢO MẬT MẬT KHẨU)
-    public NguoiDung createStaff(StaffDto.CreateRequest request) {
+    // 2. Thêm mới nhân viên (ĐÃ FIX BUG SỐ 8: Trả về DTO)
+    public StaffDto.Response createStaff(StaffDto.CreateRequest request) {
         NguoiDung staff = new NguoiDung();
 
         staff.setHoTen(request.getHoTen());
@@ -69,18 +62,16 @@ public class StaffService {
 
         // Gửi email mật khẩu tạm thời cho nhân viên mới
         try {
-            // Em nhớ tạo hàm này bên EmailService nhé
             emailService.sendTempPasswordToStaff(savedStaff.getEmail(), tempPassword);
         } catch (Exception e) {
             log.error("Lỗi khi gửi email mật khẩu cho nhân viên {}: {}", savedStaff.getEmail(), e.getMessage());
         }
 
-        return savedStaff;
+        return mapToResponse(savedStaff);
     }
 
-    // 3. Cập nhật thông tin nhân viên
-    public NguoiDung updateStaff(Long id, StaffDto.UpdateRequest request) {
-        // Sử dụng Custom Exception để GlobalExceptionHandler tự động bắt
+    // 3. Cập nhật thông tin nhân viên (ĐÃ FIX BUG SỐ 8: Trả về DTO)
+    public StaffDto.Response updateStaff(Long id, StaffDto.UpdateRequest request) {
         NguoiDung staff = nguoiDungRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên có ID: " + id));
 
@@ -91,7 +82,9 @@ public class StaffService {
             staff.setTrangThai(request.getTrangThai());
         }
 
-        return nguoiDungRepository.save(staff);
+        NguoiDung updatedStaff = nguoiDungRepository.save(staff);
+
+        return mapToResponse(updatedStaff);
     }
 
     // 4. Khóa/Xóa nhân viên (Soft Delete)
@@ -101,5 +94,17 @@ public class StaffService {
 
         existingStaff.setTrangThai("BI_KHOA");
         nguoiDungRepository.save(existingStaff);
+    }
+
+    // --- HÀM PHỤ TRỢ ---
+    // Dùng để nhặt các thông tin an toàn trả về cho Frontend, che giấu mật khẩu và dữ liệu nhạy cảm
+    private StaffDto.Response mapToResponse(NguoiDung nd) {
+        return new StaffDto.Response(
+                nd.getId(),
+                nd.getHoTen(),
+                nd.getEmail(),
+                nd.getSoDienThoai(),
+                nd.getTrangThai()
+        );
     }
 }

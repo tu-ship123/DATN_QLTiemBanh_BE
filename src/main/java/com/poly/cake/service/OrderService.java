@@ -37,35 +37,74 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản!"));
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new BusinessException("Giỏ hàng trống!");
+            throw new BusinessException("Giỏ hàng trống! Không thể đặt hàng.");
         }
 
-        // Kiểm tra tồn kho trước khi đặt
+        // =========================================================
+        // BƯỚC 1: KIỂM TRA TỒN KHO TRƯỚC (Chỉ đọc dữ liệu, tuyệt đối không trừ)
+        // =========================================================
         for (OrderDto.OrderItemRequest item : request.getItems()) {
-            int updated = sanPhamRepository.truSoLuongTon(item.getSanPhamId(), item.getSoLuong());
-            if (updated == 0) {
-                throw new BusinessException("Sản phẩm ID " + item.getSanPhamId() + " không đủ số lượng!");
+            SanPham sp = sanPhamRepository.findById(item.getSanPhamId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm ID " + item.getSanPhamId() + " không tồn tại!"));
+
+            if (sp.getSoLuongTon() < item.getSoLuong()) {
+                throw new BusinessException("Sản phẩm [" + sp.getTenSanPham() + "] không đủ số lượng trong kho!");
             }
         }
 
+        // Tính toán tổng tiền
         double tongTienHang = request.getItems().stream()
-                .mapToDouble(item -> item.getDonGia() * item.getSoLuong()).sum();
-        BigDecimal tongTien = BigDecimal.valueOf(tongTienHang + (tongTienHang >= 500000 ? 0.0 : 30000.0));
+                .mapToDouble(item -> item.getDonGia() * item.getSoLuong())
+                .sum();
+        BigDecimal tongTienThanhToan = BigDecimal.valueOf(tongTienHang + (tongTienHang >= 500000 ? 0.0 : 30000.0));
 
+        // =========================================================
+        // BƯỚC 2: LƯU ĐƠN HÀNG VÀ CHI TIẾT VÀO DATABASE
+        // =========================================================
         DonHang donHang = new DonHang();
         donHang.setKhachHang(khachHang);
         donHang.setDiaChiGiao(request.getDiaChiGiaoHang());
-        donHang.setNgayGiaoDuKien(request.getNgayGiaoHang().atTime(12, 0));
-        donHang.setTongTien(tongTien);
+        if (request.getNgayGiaoHang() != null) {
+            donHang.setNgayGiaoDuKien(request.getNgayGiaoHang().atTime(12, 0));
+        }
+        donHang.setTongTien(tongTienThanhToan);
         donHang.setTrangThai(TrangThaiDonHang.CHO_XAC_NHAN);
         donHang.setNguonDon("ONLINE");
 
         DonHang savedDonHang = donHangRepository.save(donHang);
 
-        // ... (Mapping chi tiết đơn hàng giữ nguyên như cũ của em)
+        List<ChiTietDonHang> chiTietList = request.getItems().stream().map(itemDto -> {
+            // Bước 1 đã check tồn tại rồi nên bước này get() luôn không sợ lỗi
+            SanPham sanPham = sanPhamRepository.findById(itemDto.getSanPhamId()).get();
+
+            ChiTietDonHang chiTiet = new ChiTietDonHang();
+            chiTiet.setDonHang(savedDonHang);
+            chiTiet.setSanPham(sanPham);
+            chiTiet.setSoLuong(itemDto.getSoLuong());
+            chiTiet.setDonGiaTaiThoiDiem(BigDecimal.valueOf(itemDto.getDonGia()));
+            return chiTiet;
+        }).collect(Collectors.toList());
+
+        chiTietDonHangRepository.saveAll(chiTietList);
+        savedDonHang.setChiTietDonHangs(chiTietList);
+
+        // =========================================================
+        // BƯỚC 3: TRỪ TỒN KHO THỰC TẾ (Dùng lệnh Update Atomic)
+        // =========================================================
+        for (OrderDto.OrderItemRequest item : request.getItems()) {
+            int updated = sanPhamRepository.truSoLuongTon(item.getSanPhamId(), item.getSoLuong());
+            // Đề phòng đúng tích tắc đó có người khác mua mất hàng (Race Condition)
+            if (updated == 0) {
+                // Ném exception ra đây thì @Transactional sẽ lập tức ROLLBACK (Xóa luôn đơn hàng vừa tạo ở Bước 2)
+                throw new BusinessException("Rất tiếc, sản phẩm ID " + item.getSanPhamId() + " vừa hết hàng trong tích tắc! Vui lòng thử lại.");
+            }
+        }
+
+        // Bắn thông báo về cho Admin
+        notificationService.notifyNewOrderToAdmins("TING TING! Có đơn hàng mới được đặt: HD-" + savedDonHang.getId());
+
         return mapToResponseDto(savedDonHang);
     }
-
     // 2 & 3. LẤY DANH SÁCH ĐƠN HÀNG
     public List<OrderDto.Response> getOrdersByUser(String email) {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(email)
@@ -127,11 +166,56 @@ public class OrderService {
             sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
         }
     }
-
-    // MAPPING DTO
+    // MAPPING DTO HOÀN CHỈNH - KHÔNG CÒN PLACEHOLDER
     private OrderDto.Response mapToResponseDto(DonHang donHang) {
         OrderDto.Response dto = new OrderDto.Response();
-        // ... giữ nguyên logic mapping của em ở đây
+
+        // Mapping thông tin đơn hàng
+        dto.setId(donHang.getId());
+        dto.setMaDonHang("HD-" + donHang.getId());
+        dto.setDiaChiGiaoHang(donHang.getDiaChiGiao());
+        dto.setGhiChu(donHang.getGhiChu());
+        dto.setLyDoHuy(donHang.getLyDoHuy());
+        dto.setNgayTao(donHang.getNgayTao());
+
+        // Mapping thông tin khách hàng an toàn
+        if (donHang.getKhachHang() != null) {
+            dto.setSoDienThoai(donHang.getKhachHang().getSoDienThoai());
+            dto.setEmailNguoiDung(donHang.getKhachHang().getEmail());
+        }
+
+        // Mapping ngày giao và tổng tiền
+        if (donHang.getNgayGiaoDuKien() != null) {
+            dto.setNgayGiaoHang(donHang.getNgayGiaoDuKien().toLocalDate());
+        }
+        if (donHang.getTongTien() != null) {
+            dto.setTongTien(donHang.getTongTien().doubleValue());
+        }
+
+        // Mapping trạng thái (Enum -> String)
+        dto.setTrangThai(donHang.getTrangThai() != null ? donHang.getTrangThai().name() : "CHO_XAC_NHAN");
+
+        // Mapping tên nhân viên phụ trách
+        if (donHang.getNhanVien() != null) {
+            dto.setTenNhanVienPhuTrach(donHang.getNhanVien().getHoTen());
+        }
+
+        // Mapping danh sách sản phẩm (Items)
+        if (donHang.getChiTietDonHangs() != null) {
+            List<OrderDto.OrderItemResponse> itemDtos = donHang.getChiTietDonHangs().stream()
+                    .map(ct -> {
+                        OrderDto.OrderItemResponse itemDto = new OrderDto.OrderItemResponse();
+                        itemDto.setSanPhamId(ct.getSanPham().getId());
+                        itemDto.setTenSanPham(ct.getSanPham().getTenSanPham());
+                        itemDto.setSoLuong(ct.getSoLuong());
+                        // Đảm bảo không bị null pointer ở giá
+                        itemDto.setGiaBan(ct.getDonGiaTaiThoiDiem() != null ? ct.getDonGiaTaiThoiDiem().doubleValue() : 0.0);
+                        return itemDto;
+                    })
+                    .collect(Collectors.toList());
+            dto.setItems(itemDtos);
+        }
+
         return dto;
     }
 

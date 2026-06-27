@@ -1,6 +1,7 @@
 package com.poly.cake.controller;
 
 import com.poly.cake.dto.OrderDto;
+import com.poly.cake.entity.TrangThaiDonHang;
 import com.poly.cake.service.AdminOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -33,13 +34,15 @@ public class AdminOrderController {
 
     // 2. PUT: Override trạng thái + Audit log
     @PutMapping("/{id}/override")
-    public ResponseEntity<?> overrideOrder(@PathVariable Long id, 
-                                           @RequestParam String trangThaiMoi, 
-                                           @RequestParam(required = false) String lyDo, 
-                                           Authentication authentication) {
+    // @PreAuthorize(...) của em giữ nguyên nhé
+    public ResponseEntity<?> overrideOrder(
+            @PathVariable Long id,
+            @RequestParam TrangThaiDonHang trangThaiMoi, // Ép Spring Boot tự động Validate Enum ở ngay đây
+            @RequestParam(required = false) String lyDo,
+            Authentication authentication) {
 
-            return ResponseEntity.ok(adminOrderService.overrideOrderStatus(id, trangThaiMoi, lyDo, authentication.getName()));
-
+        // Truyền thẳng Enum xuống Service
+        return ResponseEntity.ok(adminOrderService.overrideOrderStatus(id, trangThaiMoi, lyDo, authentication.getName()));
     }
 
     // 3. POST: Refund - Hoàn tiền

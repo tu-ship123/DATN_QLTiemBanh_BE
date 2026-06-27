@@ -11,19 +11,20 @@ import java.util.List;
 @Entity
 @Table(name = "don_hang")
 @Getter
-@Data
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 public class DonHang {
 
-    @Enumerated(EnumType.STRING) // Quan trọng: lưu xuống DB là chữ, không phải số thứ tự
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TrangThaiDonHang trangThai;
+    private TrangThaiDonHang trangThai = TrangThaiDonHang.CHO_XAC_NHAN;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include // Thêm dòng này vào ngay trên private Long id;
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -70,13 +71,22 @@ public class DonHang {
     @OneToMany(mappedBy = "donHang", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChiTietDonHang> chiTietDonHangs = new ArrayList<>();
 
-    @PrePersist
-    protected void onCreate() {
-        ngayTao = LocalDateTime.now();
-    }
 
     @PreUpdate
     protected void onUpdate() {
         ngayCapNhat = LocalDateTime.now();
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        // Chốt chặn 1: Nếu bằng một cách nào đó bị set null, tự động ép về mặc định
+        if (this.trangThai == null) {
+            this.trangThai = TrangThaiDonHang.CHO_XAC_NHAN;
+        }
+
+        // Chốt chặn 2: Tiện thể tự động gán luôn thời gian tạo đơn nếu chưa có
+        if (this.ngayTao == null) {
+            this.ngayTao = LocalDateTime.now();
+        }
     }
 }
