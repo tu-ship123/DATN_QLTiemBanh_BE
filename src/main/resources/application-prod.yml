@@ -11,12 +11,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
   
-  jpa:
-    database-platform: org.hibernate.dialect.SQLServerDialect
-    hibernate:
-      ddl-auto: validate # Trên Prod CHỈ KIỂM TRA, TUYỆT ĐỐI KHÔNG DÙNG update để tránh làm hỏng dữ liệu thật
-    show-sql: false # Tắt show log SQL để tối ưu hiệu năng
-
+jpa:
+  open-in-view: false # Tắt cảnh báo open-in-view
+  hibernate:
+    ddl-auto: validate # Trên Prod CHỈ KIỂM TRA, TUYỆT ĐỐI KHÔNG DÙNG update để tránh làm hỏng dữ liệu thật
+  show-sql: false # Tắt show log SQL để tối ưu hiệu năng
   data:
     redis:
       host: ${REDIS_HOST}

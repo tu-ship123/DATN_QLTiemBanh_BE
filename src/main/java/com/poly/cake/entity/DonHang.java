@@ -2,6 +2,7 @@ package com.poly.cake.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -10,11 +11,16 @@ import java.util.List;
 @Entity
 @Table(name = "don_hang")
 @Getter
+@Data
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class DonHang {
+
+    @Enumerated(EnumType.STRING) // Quan trọng: lưu xuống DB là chữ, không phải số thứ tự
+    @Column(nullable = false)
+    private TrangThaiDonHang trangThai;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,10 +37,6 @@ public class DonHang {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ma_giam_gia_id")
     private MaGiamGia maGiamGia;
-
-
-    @Column(nullable = false)
-    private String trangThai = "CHO_XAC_NHAN";
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal tongTien;

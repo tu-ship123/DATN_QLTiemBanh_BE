@@ -1,41 +1,49 @@
 package com.poly.cake.repository;
 
 import com.poly.cake.entity.SanPham;
-
-import java.util.List;
-
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 @Repository
 public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
-    // Tạm thời chưa cần viết thêm hàm gì, JpaRepository đã cung cấp sẵn hàm findById() cho OrderService dùng rồi.
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon - :qty WHERE s.id = :id AND s.soLuongTon >= :qty")
-    int truSoLuongTon(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("qty") int qty);
 
-    // Tìm theo tên sản phẩm
+    // 1. Tìm theo tên sản phẩm
     List<SanPham> findByTenSanPhamContainingIgnoreCase(String keyword);
 
-    // Tìm theo trạng thái
+    // 2. Tìm theo trạng thái
     List<SanPham> findByTrangThai(String trangThai);
 
-    // Tìm theo danh mục
+    // 3. Tìm theo danh mục
     List<SanPham> findByDanhMucId(Long danhMucId);
 
-    // Kiểm tra trùng tên
+    // 4. Kiểm tra trùng tên
     boolean existsByTenSanPham(String tenSanPham);
 
+    // 5. Lọc sản phẩm nâng cao
     @Query("SELECT sp FROM SanPham sp WHERE " +
-           "(:keyword IS NULL OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-           "(:trangThai IS NULL OR sp.trangThai = :trangThai) AND " +
-           "(:danhMucId IS NULL OR sp.danhMuc.id = :danhMucId) " +
-           "ORDER BY sp.ngayTao DESC")
+            "(:keyword IS NULL OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:trangThai IS NULL OR sp.trangThai = :trangThai) AND " +
+            "(:danhMucId IS NULL OR sp.danhMuc.id = :danhMucId) " +
+            "ORDER BY sp.ngayTao DESC")
     List<SanPham> filterProducts(
             @Param("keyword") String keyword,
             @Param("trangThai") String trangThai,
             @Param("danhMucId") Long danhMucId
     );
+
+    // 6. CỘNG LẠI TỒN KHO (Dùng khi Hủy đơn hàng)
+    @Modifying
+    @Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon + :qty WHERE s.id = :id")
+    int congLaiSoLuongTon(@Param("id") Long id, @Param("qty") int qty);
+
+    // 7. TRỪ TỒN KHO (Dùng khi Đặt hàng)
+    @Modifying
+    @Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon - :qty WHERE s.id = :id AND s.soLuongTon >= :qty")
+    int truSoLuongTon(@Param("id") Long id, @Param("qty") int qty);
+
 }

@@ -19,11 +19,9 @@ public class PhanCaController {
     // Phân ca cho nhân viên
     @PostMapping("/schedules")
     public ResponseEntity<?> createSchedule(@Valid @RequestBody PhanCaRequest request) {
-        try {
+
             return ResponseEntity.ok(phanCaService.createPhanCa(request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+
     }
 
     // Xem bảng chấm công

@@ -23,3 +23,9 @@ logs/
 # Environment
 .env
 .env.local
+
+# Chặn tuyệt đối các file chứa mật khẩu thật
+.env
+*.env
+application-dev.yml
+application-prod.yml

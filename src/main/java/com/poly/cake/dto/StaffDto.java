@@ -3,10 +3,21 @@ package com.poly.cake.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class StaffDto {
-
+    @Data
+    @AllArgsConstructor // Thêm đúng dòng này vào để tự sinh Constructor 5 tham số
+    @NoArgsConstructor
+    public static class Response {
+        private Long id;
+        private String hoTen;
+        private String email;
+        private String soDienThoai;
+        private String trangThai;
+    }
     @Data
     public static class CreateRequest {
         @NotBlank(message = "Họ tên không được để trống")

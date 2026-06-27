@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -25,13 +26,9 @@ public class OrderController {
     @PostMapping
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> checkout(@Valid @RequestBody OrderDto.Request request, Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            OrderDto.Response response = orderService.createOrder(request, email);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getLocalizedMessage());
-        }
+        String email = authentication.getName();
+        OrderDto.Response response = orderService.createOrder(request, email);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // 2. API LẤY LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH ĐANG LOG IN - Chỉ dành cho Khách hàng
@@ -42,15 +39,16 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByUser(email));
     }
 
-    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID - Ai cũng có quyền xem (Khách xem đơn của họ, Admin/Staff xem để xử lý)
+    // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('KHACH_HANG', 'ADMIN', 'NHAN_VIEN')")
-    public ResponseEntity<?> getOrderById(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(orderService.getOrderById(id));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
+    public ResponseEntity<?> getOrderById(@PathVariable Long id, Authentication authentication) {
+        // Lấy email và quyền của người đang đăng nhập
+        String email = authentication.getName();
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
+
+        // Truyền thêm email và quyền xuống Service để kiểm tra
+        return ResponseEntity.ok(orderService.getOrderById(id, email, role));
     }
 
     // 4. API LẤY TOÀN BỘ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN mới được xem
@@ -64,29 +62,25 @@ public class OrderController {
     @PutMapping("/{id}/process")
     @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
     public ResponseEntity<?> processOrder(@PathVariable Long id, @Valid @RequestBody OrderProcessDto request, Authentication authentication) {
-        try {
-            // Lấy email của Admin/Nhân viên đang log in thao tác
-            String emailNhanVien = authentication.getName();
-            
-            OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
-            return ResponseEntity.ok(updatedOrder);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        // Lấy email của Admin/Nhân viên đang log in thao tác
+        String emailNhanVien = authentication.getName();
+
+        OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
+        return ResponseEntity.ok(updatedOrder);
     }
 
     // 6. API USER TỰ HỦY ĐƠN HÀNG - Chỉ Khách hàng mới được tự hủy đơn của mình
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> cancelOrder(@PathVariable Long id, Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            orderService.cancelOrder(id, email);
-            return ResponseEntity.ok("Hủy đơn hàng thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        String email = authentication.getName();
+        orderService.cancelOrder(id, email);
+
+        // Đã bọc String thô vào Map để Spring Boot tự động chuyển thành JSON Object
+        return ResponseEntity.ok(Map.of("message", "Hủy đơn hàng thành công!"));
     }
+
+    // 7. API LẤY DỮ LIỆU THIẾT KẾ 3D
     @GetMapping("/{id}/design")
     @PreAuthorize("hasAnyRole('NHAN_VIEN', 'ADMIN', 'KHACH_HANG')")
     @Operation(summary = "Lấy dữ liệu thiết kế 3D của đơn hàng",

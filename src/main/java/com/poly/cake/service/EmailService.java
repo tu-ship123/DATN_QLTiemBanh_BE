@@ -11,19 +11,16 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
-    public void sendNewStaffEmail(String toEmail, String fullName, String rawPassword) {
+
+    public void sendTempPasswordToStaff(String toEmail, String tempPassword) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);
-        message.setSubject("Thông tin tài khoản nhân viên PolyCake");
-
-        // Nội dung bức thư
-        message.setText("Chào " + fullName + ",\n\n" +
-                "Tài khoản nhân viên của bạn đã được tạo thành công trên hệ thống PolyCake.\n\n" +
-                "Thông tin đăng nhập:\n" +
-                "- Tên đăng nhập: " + toEmail + "\n" +
-                "- Mật khẩu tạm thời: " + rawPassword + "\n\n" +
-                "Vì lý do bảo mật, vui lòng đăng nhập và đổi mật khẩu ngay trong lần đầu tiên sử dụng hệ thống.\n\n" +
-                "Trân trọng,\nBan quản trị PolyCake");
+        message.setSubject("🔒 [Poly Cake] Thông tin tài khoản nhân viên mới");
+        message.setText("Chào bạn,\n\n" +
+                "Tài khoản nhân viên của bạn đã được khởi tạo thành công trên hệ thống.\n" +
+                "Mật khẩu đăng nhập tạm thời của bạn là: " + tempPassword + "\n\n" +
+                "Vui lòng đăng nhập và đổi mật khẩu ngay để đảm bảo an toàn.\n\n" +
+                "Trân trọng,\nBan Quản Trị Tiệm Bánh");
 
         mailSender.send(message);
     }

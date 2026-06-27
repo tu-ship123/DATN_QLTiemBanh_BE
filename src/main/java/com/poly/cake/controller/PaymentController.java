@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/payment")
@@ -16,39 +19,46 @@ public class PaymentController {
 
     private final OrderService orderService;
 
-    // Lấy token từ file application-dev.yml
     @Value("${sepay.webhook-token}")
     private String sepayToken;
+
+    // Định nghĩa sẵn Regex (Quét tìm chữ PC nối liền với 1 dãy số, ví dụ: PC1234, ck PC88)
+    private static final Pattern PC_PATTERN = Pattern.compile("PC(\\d+)");
 
     @PostMapping("/sepay-webhook")
     public ResponseEntity<String> handleSePayWebhook(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody SePayWebhookDto request) {
 
-        // 1. Kiểm tra "Mật khẩu" (Token) xem có đúng là SePay gọi không
+        // 1. Kiểm tra Token
         if (authHeader == null || !authHeader.replace("Bearer ", "").trim().equals(sepayToken)) {
             log.warn("Cảnh báo: Có người gọi Webhook SePay nhưng sai Token!");
             return ResponseEntity.status(403).body("Sai mã xác thực Webhook!");
         }
 
-        // 2. Chỉ xử lý khi có tiền chảy VÀO tài khoản ("in")
+        // 2. Chỉ xử lý khi có tiền chảy VÀO ("in")
         if ("in".equalsIgnoreCase(request.getTransferType())) {
             String content = request.getContent();
 
-            // 3. Bóc tách nội dung chuyển khoản tìm chữ "PC" (PolyCake)
-            if (content != null && content.contains("PC")) {
-                try {
-                    // Lấy con số đằng sau chữ PC (Ví dụ: "PC1234" -> "1234")
-                    String orderIdStr = content.substring(content.indexOf("PC") + 2).trim().split(" ")[0];
-                    Long orderId = Long.parseLong(orderIdStr);
+            if (content != null) {
+                // 3. Dùng Regex để quét tự động
+                Matcher matcher = PC_PATTERN.matcher(content.toUpperCase()); // toUpperCase để lỡ khách viết pc1234 vẫn nhận
 
-                    log.info("Thành công: Nhận {} VNĐ cho đơn hàng PC{}", request.getTransferAmount(), orderId);
+                if (matcher.find()) {
+                    try {
+                        // Lấy ra đúng nhóm số đằng sau chữ PC
+                        Long orderId = Long.parseLong(matcher.group(1));
+                        log.info("Thành công: Nhận {} VNĐ cho đơn hàng HD-{}", request.getTransferAmount(), orderId);
 
-                    // 4. Gọi Service cập nhật đơn hàng thành ĐÃ THANH TOÁN
-                    // orderService.updatePaymentStatus(orderId, "DA_THANH_TOAN");
+                        // 4. Mở comment và gọi Service cập nhật đơn hàng thành ĐÃ THANH TOÁN
+                        // Lưu ý: Nếu em đã dùng Enum ở Vấn đề 6, hãy sửa thành:
+                        // orderService.updatePaymentStatus(orderId, TrangThaiDonHang.DA_THANH_TOAN);
 
-                } catch (Exception e) {
-                    log.error("Không thể lấy ID đơn hàng từ nội dung: {}", content);
+                    } catch (Exception e) {
+                        log.error("Lỗi khi cập nhật trạng thái đơn hàng: {}", e.getMessage());
+                    }
+                } else {
+                    log.warn("Bỏ qua Webhook: Không tìm thấy cú pháp hợp lệ (VD: PC1234) trong tin nhắn: '{}'", content);
                 }
             }
         }

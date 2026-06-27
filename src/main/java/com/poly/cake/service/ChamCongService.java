@@ -40,7 +40,7 @@ public class ChamCongService {
     public ChamCongResponse checkIn(StaffCheckinRequest request) {
         log.debug("Đang xử lý chấm công cho phanCaId: {}", request.getPhanCaId());
         NguoiDung nhanVien = getNhanVienHienTai();
-        System.out.println("DEBUG: ID nhân viên hiện tại là: " + nhanVien.getId());
+
         // ------------------------------
 
         // Tìm phân ca theo id và đảm bảo là ca của nhân viên này

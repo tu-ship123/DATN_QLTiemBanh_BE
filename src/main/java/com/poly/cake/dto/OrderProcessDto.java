@@ -1,9 +1,14 @@
 package com.poly.cake.dto;
 
+import com.poly.cake.entity.TrangThaiDonHang;
 import lombok.Data;
+import jakarta.validation.constraints.NotNull;
 
-@Data
+@Data // BẮT BUỘC phải có cái này để IntelliJ tự sinh hàm getTrangThai()
 public class OrderProcessDto {
-    private String trangThai; // DA_XAC_NHAN, DANG_LAM, SAN_SANG, DANG_GIAO, HOAN_THANH, DA_HUY
-    private String lyDoHuy;   // Chỉ bắt buộc gửi lên khi trangThai là DA_HUY
+
+    @NotNull(message = "Trạng thái không được để trống")
+    private TrangThaiDonHang trangThai; // Dùng trực tiếp Enum luôn
+
+    private String lyDoHuy;
 }

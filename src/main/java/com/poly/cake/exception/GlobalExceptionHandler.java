@@ -1,32 +1,31 @@
 package com.poly.cake.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
 import java.util.Map;
 
-@RestControllerAdvice
+@Slf4j
+@RestControllerAdvice // Đánh dấu đây là "Phễu" hứng lỗi cho toàn bộ API
 public class GlobalExceptionHandler {
 
-    // Lỗi 404: Tìm không thấy
+    // 1. Chuyên bắt các lỗi không tìm thấy dữ liệu (như sai ID nhân viên, sai ID đơn hàng)
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<?> handleNotFound(ResourceNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
+        log.warn("Không tìm thấy dữ liệu: {}", ex.getMessage());
+        // Luôn trả về định dạng JSON { "error": "..." } để Vue.js dễ đọc
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
     }
 
-    // Lỗi 400: Sai logic nghiệp vụ
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<?> handleBusiness(BusinessException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
-    }
+    // 2. Chuyên bắt TẤT CẢ các lỗi còn lại (Trạm gác cuối cùng)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleGeneralException(Exception ex) {
+        // Ghi log chi tiết ra màn hình đen Console để em dễ fix bug
+        log.error("Lỗi hệ thống nghiêm trọng: ", ex);
 
-    // Lỗi 403: Không đủ quyền
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<?> handleForbidden(ForbiddenException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
+        // Trả về Frontend một thông báo dạng JSON
+        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
-
-    // (Em có thể giữ lại cái handleValidationExceptions nếu lúc nãy đã thêm vào nhé)
 }

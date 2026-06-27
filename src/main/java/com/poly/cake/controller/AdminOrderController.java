@@ -37,11 +37,9 @@ public class AdminOrderController {
                                            @RequestParam String trangThaiMoi, 
                                            @RequestParam(required = false) String lyDo, 
                                            Authentication authentication) {
-        try {
+
             return ResponseEntity.ok(adminOrderService.overrideOrderStatus(id, trangThaiMoi, lyDo, authentication.getName()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+
     }
 
     // 3. POST: Refund - Hoàn tiền
@@ -49,11 +47,9 @@ public class AdminOrderController {
     public ResponseEntity<?> refundOrder(@PathVariable Long id, 
                                          @RequestParam String lyDo, 
                                          Authentication authentication) {
-        try {
+
             return ResponseEntity.ok(adminOrderService.refundOrder(id, lyDo, authentication.getName()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+
     }
 
     // 4. DELETE: Hủy đơn ép buộc & Rollback Kho Hàng
@@ -61,11 +57,9 @@ public class AdminOrderController {
     public ResponseEntity<?> cancelAndRollback(@PathVariable Long id, 
                                                @RequestParam String lyDo, 
                                                Authentication authentication) {
-        try {
+
             adminOrderService.cancelAndRollbackInventory(id, lyDo, authentication.getName());
             return ResponseEntity.ok("Đã hủy đơn hàng HD-" + id + " và hoàn trả số lượng về kho thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+
     }
 }

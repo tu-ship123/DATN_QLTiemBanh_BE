@@ -1,10 +1,7 @@
 package com.poly.cake.service;
 
 import com.poly.cake.dto.PosOrderDto;
-import com.poly.cake.entity.DonHang;
-import com.poly.cake.entity.ChiTietDonHang;
-import com.poly.cake.entity.NguoiDung;
-import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.*;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
@@ -53,7 +50,7 @@ public class PosOrderService {
         donHang.setKhachHang(khachHang);
         donHang.setNhanVien(nhanVien);
         donHang.setNguonDon("POS");
-        donHang.setTrangThai("DA_XAC_NHAN"); // Mua tại quầy thì mặc định xác nhận luôn
+        donHang.setTrangThai(TrangThaiDonHang.HOAN_THANH);// Mua tại quầy thì mặc định xác nhận luôn
         donHang.setNgayTao(LocalDateTime.now());
         donHang.setGhiChu(request.getGhiChu());
         donHang.setTongTien(BigDecimal.ZERO); // Tạm thời gán bằng 0 để cộng dồn sau
@@ -113,7 +110,7 @@ public class PosOrderService {
         PosOrderDto.Response response = new PosOrderDto.Response();
         response.setDonHangId(savedDonHang.getId());
         response.setTongTien(totalAmount);
-        response.setTrangThai(savedDonHang.getTrangThai());
+        response.setTrangThai(savedDonHang.getTrangThai().name());
         response.setNguonDon(savedDonHang.getNguonDon());
         response.setVietQrUrl(vietQrUrl);
         response.setReceiptText(receiptText);

@@ -4,10 +4,14 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtUtil {
@@ -44,7 +48,13 @@ public class JwtUtil {
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
-
+    private Claims extractAllClaims(String token) {
+        return io.jsonwebtoken.Jwts.parserBuilder()
+                .setSigningKey(getSignInKey()) // Đảm bảo trỏ đúng vào hàm hoặc biến SecretKey của em
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
     public String extractEmail(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSignInKey())
@@ -66,5 +76,20 @@ public class JwtUtil {
     public long getExpirationTime(String token) {
         Claims claims = Jwts.parserBuilder().setSigningKey(getSignInKey()).build().parseClaimsJws(token).getBody();
         return claims.getExpiration().getTime() - System.currentTimeMillis();
+    }
+    public List<GrantedAuthority> extractRoles(String token) {
+        // 1. Gọi hàm giải mã Payload có sẵn của em (Thường các form chuẩn đều đặt tên là extractAllClaims)
+        Claims claims = extractAllClaims(token);
+
+        // 2. Trích xuất giá trị role ra.
+        // Lưu ý: Nếu lúc tạo token em đặt key là "roles" hay "authorities" thì sửa lại chữ "role" cho khớp nhé.
+        String role = claims.get("role", String.class);
+
+        // 3. Đóng gói thành GrantedAuthority theo đúng chuẩn Spring Security yêu cầu
+        if (role != null && !role.trim().isEmpty()) {
+            return Collections.singletonList(new SimpleGrantedAuthority(role));
+        }
+
+        return Collections.emptyList();
     }
 }
