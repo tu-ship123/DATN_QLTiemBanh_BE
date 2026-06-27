@@ -74,6 +74,12 @@ public class AdminMaGiamGiaService {
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy mã giảm giá"));
 
+        boolean trungVoiMaKhac = maGiamGiaRepository.existsByMaCode(request.getMaCode().toUpperCase())
+                && !voucher.getMaCode().equalsIgnoreCase(request.getMaCode());
+        if (trungVoiMaKhac) {
+            throw new RuntimeException("Mã giảm giá " + request.getMaCode() + " đã được sử dụng!");
+        }
+
         voucher.setMaCode(request.getMaCode().toUpperCase());
         voucher.setLoaiGiamGia(request.getLoaiGiamGia());
         voucher.setGiaTriGiam(request.getGiaTriGiam());

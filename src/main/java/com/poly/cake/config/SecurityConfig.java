@@ -54,9 +54,8 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider)
 
                 // 3. Gắn "Bảo vệ cổng" chống Spam lên trước tiên, sau đó mới đến kiểm tra Token
-                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitingFilter, JwtFilter.class);
         return http.build();
     }
 

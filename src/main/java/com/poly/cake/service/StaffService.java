@@ -2,6 +2,7 @@ package com.poly.cake.service;
 
 import com.poly.cake.dto.StaffDto;
 import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.repository.NguoiDungRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,9 @@ public class StaffService {
 
     // 2. Thêm mới nhân viên (ĐÃ FIX BUG SỐ 8: Trả về DTO)
     public StaffDto.Response createStaff(StaffDto.CreateRequest request) {
+        if (nguoiDungRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new BusinessException("Email " + request.getEmail() + " đã được sử dụng!");
+        }
         NguoiDung staff = new NguoiDung();
 
         staff.setHoTen(request.getHoTen());

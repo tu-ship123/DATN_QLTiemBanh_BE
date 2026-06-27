@@ -35,6 +35,8 @@ public class AuthService {
     private final RedisTokenService redisTokenService;
     private final JavaMailSender mailSender;
 
+    private final EmailService emailService;
+
     // [SỬA] Dùng SecureRandom thay cho Random để tạo OTP an toàn hơn
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -168,7 +170,7 @@ public class AuthService {
             nguoiDungRepository.save(user);
 
             // Gọi service gửi email ở đây...
-            // emailService.sendPasswordResetOtp(user.getEmail(), otp);
+            emailService.sendPasswordResetOtp(user.getEmail(), otp);
         }
 
         // 3. POKER FACE: Luôn luôn trả về đúng 1 câu này, bất kể lệnh if ở trên có chạy hay không!

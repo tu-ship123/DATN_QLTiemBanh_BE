@@ -111,11 +111,15 @@ public class ChamCongService {
 
         chamCong.setGioRa(gioRaThucTe);
 
-        // Kiểm tra về sớm
-        if (gioRaTime.isBefore(gioKetThucCa) && "DUNG_GIO".equals(chamCong.getTrangThai())) {
-            chamCong.setTrangThai("VE_SOM");
+        if (gioRaTime.isBefore(gioKetThucCa)) {
+            // Nếu trước đó đã là "DI_TRE", thì giờ về sớm nữa -> Trở thành "DI_TRE_VE_SOM"
+            // Nếu là "DUNG_GIO" hoặc trạng thái khác -> Chuyển thành "VE_SOM"
+            if ("DI_TRE".equals(chamCong.getTrangThai())) {
+                chamCong.setTrangThai("DI_TRE_VE_SOM");
+            } else {
+                chamCong.setTrangThai("VE_SOM");
+            }
         }
-
         chamCong = chamCongRepository.save(chamCong);
         return mapToResponse(chamCong);
     }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -147,24 +148,55 @@ public class OrderService {
 
         return mapToResponseDto(donHang);
     }
+    @Transactional
+    public void updatePaymentStatus(Long orderId, TrangThaiDonHang newStatus) {
+        DonHang donHang = donHangRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng ID: " + orderId));
 
-    // 6. HỦY ĐƠN
+        // Cập nhật trạng thái
+        donHang.setTrangThai(newStatus);
+        donHangRepository.save(donHang);
+
+        log.info("Webhook SePay: Đơn hàng HD-{} đã chuyển sang trạng thái {}", orderId, newStatus);
+
+        // Gửi thông báo cho Admin/Khách hàng (Tùy chọn)
+        notificationService.notifyNewOrderToAdmins("Đơn hàng HD-" + orderId + " đã được thanh toán thành công!");
+    }
+
+
+    // 6. HỦY ĐƠN (ĐÃ FIX LỖI BẢO MẬT - CHECK QUYỀN SỞ HỮU)
     @Transactional
     public void cancelOrder(Long id, String emailNguoiDung) {
         DonHang donHang = donHangRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại."));
 
+        // Lấy thông tin user hiện tại để check quyền
+        NguoiDung user = nguoiDungRepository.findByEmail(emailNguoiDung)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
+
+        // --- BẮT ĐẦU CHẶN IDOR ---
+        // Nếu là KHACH_HANG, bắt buộc phải kiểm tra xem đơn hàng đó có phải của họ không
+        if ("KHACH_HANG".equals(user.getQuyen())) {
+            if (donHang.getKhachHang() == null || !donHang.getKhachHang().getEmail().equals(emailNguoiDung)) {
+                throw new ForbiddenException("Bạn không có quyền hủy đơn hàng của người khác!");
+            }
+        }
+        // --- KẾT THÚC CHẶN IDOR ---
+
+        // Chỉ cho phép hủy khi đơn hàng ở trạng thái ban đầu
         if (donHang.getTrangThai() != TrangThaiDonHang.CHO_XAC_NHAN) {
-            throw new BusinessException("Đơn hàng không thể hủy lúc này!");
+            throw new BusinessException("Đơn hàng đã được xử lý, không thể hủy lúc này!");
         }
 
         donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
         donHangRepository.save(donHang);
 
-        // Rollback kho
+        // Rollback tồn kho
         for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
             sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
         }
+
+        log.info("Khách hàng {} đã hủy đơn hàng HD-{}", emailNguoiDung, id);
     }
     // MAPPING DTO HOÀN CHỈNH - KHÔNG CÒN PLACEHOLDER
     private OrderDto.Response mapToResponseDto(DonHang donHang) {
@@ -223,17 +255,26 @@ public class OrderService {
         DonHang donHang = donHangRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
 
-        // IDOR Check
+        // IDOR Check (Giữ nguyên logic cũ của em)
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         NguoiDung user = nguoiDungRepository.findByEmail(email).orElseThrow();
         if ("KHACH_HANG".equals(user.getQuyen()) && (donHang.getKhachHang() == null || !donHang.getKhachHang().getId().equals(user.getId()))) {
             throw new ForbiddenException("Bạn không có quyền xem!");
         }
 
+        // --- FIX BUG NPE Ở ĐÂY ---
+        String json = donHang.getThietKeBanhJson();
+
+        // Kiểm tra null và kiểm tra chuỗi rỗng
+        if (json == null || json.trim().isEmpty()) {
+            return Collections.emptyMap(); // Trả về map rỗng, không crash, không lỗi
+        }
+
         try {
-            return objectMapper.readValue(donHang.getThietKeBanhJson(), new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new BusinessException("Lỗi dữ liệu thiết kế 3D");
+            log.error("Lỗi parse JSON 3D cho đơn hàng {}: {}", orderId, e.getMessage());
+            throw new BusinessException("Dữ liệu thiết kế 3D bị lỗi định dạng!");
         }
     }
 }

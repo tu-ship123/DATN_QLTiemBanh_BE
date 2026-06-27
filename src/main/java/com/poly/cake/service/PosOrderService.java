@@ -2,10 +2,14 @@ package com.poly.cake.service;
 
 import com.poly.cake.dto.PosOrderDto;
 import com.poly.cake.entity.*;
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +20,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PosOrderService {
@@ -25,22 +29,26 @@ public class PosOrderService {
     private final ChiTietDonHangRepository chiTietDonHangRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final SanPhamRepository sanPhamRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public PosOrderDto.Response createPosOrder(PosOrderDto.Request request, String emailNhanVien) {
-        // 1. Xác định nhân viên đang đứng quầy chốt đơn
+        // 1. Xác định nhân viên đang đứng quầy (Dùng ResourceNotFoundException)
         NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin nhân viên!"));
 
-        // 2. Xác định khách hàng (Nếu trống gán về khách vãng lai)
-        String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isEmpty())
-                ? "khachvanglai@gmail.com" : request.getEmailKhachHang();
+        // 2. Xác định khách hàng (Tự động lấy vãng lai nếu trống)
+        NguoiDung khachHang;
+        if (request.getEmailKhachHang() == null || request.getEmailKhachHang().isEmpty()) {
+            khachHang = getOrCreateGuestAccount(); // Sử dụng hàm "tự chữa lành" đã làm ở bước trước
+        } else {
+            khachHang = nguoiDungRepository.findByEmail(request.getEmailKhachHang())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản khách hàng: " + request.getEmailKhachHang()));
+        }
 
-        NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng mặc định dưới DB!"));
-
+        // 3. Validate giỏ hàng (Dùng BusinessException)
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Hóa đơn phải có ít nhất 1 sản phẩm!");
+            throw new BusinessException("Hóa đơn phải có ít nhất 1 sản phẩm!");
         }
 
         // 3. Khởi tạo đơn hàng POS
@@ -132,5 +140,21 @@ public class PosOrderService {
                 "TỔNG TIỀN: " + donHang.getTongTien().toString() + " VND\n" +
                 "===================================" + "\n" +
                 "  CẢM ƠN QUÝ KHÁCH - HẸN GẶP LẠI!  " + "\n";
+    }
+    // Hàm này đảm bảo tài khoản khách vãng lai luôn có mặt trong DB
+    private NguoiDung getOrCreateGuestAccount() {
+        String guestEmail = "khachvanglai@gmail.com";
+        return nguoiDungRepository.findByEmail(guestEmail)
+                .orElseGet(() -> {
+                    // Nếu chưa có, tự động tạo mới!
+                    NguoiDung guest = new NguoiDung();
+                    guest.setEmail(guestEmail);
+                    guest.setHoTen("Khách Vãng Lai");
+                    guest.setQuyen("KHACH_HANG");
+                    guest.setTrangThai("HOAT_DONG");
+                    guest.setMatKhau(passwordEncoder.encode("123456")); // Mật khẩu mặc định an toàn
+                    log.info("Hệ thống tự động khởi tạo tài khoản khách vãng lai.");
+                    return nguoiDungRepository.save(guest);
+                });
     }
 }

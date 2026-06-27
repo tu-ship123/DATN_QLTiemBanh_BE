@@ -106,12 +106,10 @@ public class AdminSanPhamService {
     // 5. XÓA SẢN PHẨM
     @Transactional
     public void deleteProduct(Long id) {
-
         SanPham sanPham = sanPhamRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
-
-        sanPhamRepository.delete(sanPham);
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+        sanPham.setTrangThai("DA_XOA"); // Soft delete
+        sanPhamRepository.save(sanPham);
     }
 
     // 6. ẨN SẢN PHẨM

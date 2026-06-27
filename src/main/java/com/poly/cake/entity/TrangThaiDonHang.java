@@ -8,5 +8,6 @@ public enum TrangThaiDonHang {
     DA_GIAO,
     DA_HUY,
     DA_HOAN_TIEN,
-    HOAN_THANH // Thêm trạng thái này dành cho đơn bán tại quầy (POS)
+    HOAN_THANH,
+    DA_THANH_TOAN // Thêm trạng thái này dành cho đơn bán tại quầy (POS)
     }

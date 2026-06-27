@@ -1,6 +1,7 @@
 package com.poly.cake.controller;
 
 import com.poly.cake.dto.SePayWebhookDto;
+import com.poly.cake.entity.TrangThaiDonHang;
 import com.poly.cake.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,10 +51,8 @@ public class PaymentController {
                         Long orderId = Long.parseLong(matcher.group(1));
                         log.info("Thành công: Nhận {} VNĐ cho đơn hàng HD-{}", request.getTransferAmount(), orderId);
 
-                        // 4. Mở comment và gọi Service cập nhật đơn hàng thành ĐÃ THANH TOÁN
-                        // Lưu ý: Nếu em đã dùng Enum ở Vấn đề 6, hãy sửa thành:
-                        // orderService.updatePaymentStatus(orderId, TrangThaiDonHang.DA_THANH_TOAN);
 
+                        orderService.updatePaymentStatus(orderId, TrangThaiDonHang.DA_THANH_TOAN);
                     } catch (Exception e) {
                         log.error("Lỗi khi cập nhật trạng thái đơn hàng: {}", e.getMessage());
                     }

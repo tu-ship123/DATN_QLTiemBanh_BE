@@ -24,4 +24,16 @@ public class EmailService {
 
         mailSender.send(message);
     }
+    public void sendPasswordResetOtp(String toEmail, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Mã OTP đặt lại mật khẩu - Poly Cake");
+        message.setText(
+                "Xin chào,\n\n" +
+                        "Mã OTP của bạn là: " + otp + "\n\n" +
+                        "Mã có hiệu lực trong 5 phút. Vui lòng không chia sẻ mã này với ai.\n\n" +
+                        "Trân trọng,\nPoly Cake"
+        );
+        mailSender.send(message);
+    }
 }
