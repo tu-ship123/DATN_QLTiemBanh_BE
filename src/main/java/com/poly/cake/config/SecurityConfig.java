@@ -38,22 +38,28 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép tất cả OPTIONS (CORS preflight)
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Các endpoint công khai
-                        .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
+                // Public endpoints
+                .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
 
-                        // Phân quyền theo ROLE_ prefix (nhất quán với CustomUserDetailsService + JwtUtil)
-                        .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
-.requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
-.requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
-    .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                // Admin only
+                .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
 
+                // Admin + Staff
+                .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
-                        .anyRequest().authenticated()
-                )
+                // Cart & Orders — phải có .hasAnyAuthority() ngay liền sau
+                .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
+                    .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN") // ✅ gắn liền
+
+                // Loyalty
+                .requestMatchers("/api/v1/loyalty/pos/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                .requestMatchers("/api/v1/loyalty/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                .anyRequest().authenticated()
+            )
 
                 .exceptionHandling(customizer ->
                         customizer.accessDeniedHandler(new CustomAccessDeniedHandler())

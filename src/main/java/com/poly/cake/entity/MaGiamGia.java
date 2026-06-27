@@ -38,4 +38,7 @@ public class MaGiamGia {
     private LocalDateTime ngayHetHan;
 
     private Boolean hoatDong = true;
+
+    /** Số điểm cần dùng để đổi mã này (null = không cho đổi bằng điểm) */
+    private Integer diemCanDung;
 }

@@ -36,6 +36,10 @@ public class MaGiamGiaDto {
         private LocalDateTime ngayHetHan;
 
         private Boolean hoatDong = true;
+
+        /** Số điểm cần dùng để đổi mã này (null = không cho đổi bằng điểm) */
+        @Min(value = 1, message = "Số điểm cần dùng phải >= 1")
+        private Integer diemCanDung;
     }
 
     @Data
@@ -50,5 +54,7 @@ public class MaGiamGiaDto {
         private Integer soLuotDaDung;
         private LocalDateTime ngayHetHan;
         private Boolean hoatDong;
+        /** Số điểm cần dùng để đổi (null = không cho đổi bằng điểm) */
+        private Integer diemCanDung;
     }
 }

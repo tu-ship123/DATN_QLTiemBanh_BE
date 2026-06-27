@@ -4,7 +4,7 @@ server:
 spring:
   # Cấu hình Database SQL Server Local
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=QL_TiemBanh;encrypt=true;trustServerCertificate=true;
+    url: jdbc:sqlserver://localhost:1433;databaseName=QL_TiemBanh;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true 
     username: sa # Thay bằng username SQL Server của bạn
     password: 123456 # Thay bằng password thực tế của bạn
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

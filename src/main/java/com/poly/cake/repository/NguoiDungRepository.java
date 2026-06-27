@@ -10,6 +10,9 @@ import java.util.Optional;
 
 public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long> {
     Optional<NguoiDung> findByEmail(String email);
+
+    // Tìm khách theo số điện thoại (dùng cho POS cộng điểm offline)
+    Optional<NguoiDung> findBySoDienThoaiAndQuyen(String soDienThoai, String quyen);
     @Query("SELECT COUNT(u) FROM NguoiDung u WHERE u.quyen = 'KHACH_HANG' AND u.ngayTao >= :startDate AND u.ngayTao < :endDate")
     Long countKhachMoiByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

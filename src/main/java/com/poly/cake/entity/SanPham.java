@@ -22,7 +22,7 @@ public class SanPham {
     @JoinColumn(name = "danh_muc_id")
     private DanhMuc danhMuc;
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(200)")
     private String tenSanPham;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -36,7 +36,7 @@ public class SanPham {
     @Column(nullable = false)
     private String trangThai = "DANG_BAN"; // DANG_BAN, TAM_AN
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String moTa;
 
     private LocalDateTime ngayTao;
