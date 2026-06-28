@@ -27,6 +27,43 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    // ✅ Gửi email khuyến mãi voucher đến khách hàng
+    public void sendPromoVoucherEmail(String toEmail, String hoTen,
+                                      String maCode, String loaiGiamGia,
+                                      String giaTriGiam, String ngayHetHan,
+                                      String donHangToiThieu) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("🎉 Ưu đãi đặc biệt dành riêng cho bạn - Chocopine");
+
+        String loaiGiam = "PHAN_TRAM".equals(loaiGiamGia)
+                ? "Giảm " + giaTriGiam + "% cho đơn hàng"
+                : "Giảm " + giaTriGiam + "đ cho đơn hàng";
+
+        String dieuKien = (donHangToiThieu != null && !donHangToiThieu.equals("0"))
+                ? "\n   Đơn hàng tối thiểu: " + donHangToiThieu + "đ"
+                : "";
+
+        message.setText(
+            "Xin chào " + hoTen + ",\n\n" +
+            "🎂 Chocopine gửi đến bạn một ưu đãi đặc biệt!\n\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "   MÃ GIẢM GIÁ: " + maCode + "\n" +
+            "   Nội dung: " + loaiGiam + dieuKien + "\n" +
+            "   Hạn sử dụng: " + ngayHetHan + "\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+            "👉 Cách sử dụng:\n" +
+            "   1. Truy cập website Chocopine\n" +
+            "   2. Chọn sản phẩm yêu thích và thêm vào giỏ hàng\n" +
+            "   3. Nhập mã \"" + maCode + "\" tại bước thanh toán\n" +
+            "   4. Tận hưởng ưu đãi!\n\n" +
+            "Đừng bỏ lỡ cơ hội này nhé! Mã chỉ có hiệu lực đến " + ngayHetHan + ".\n\n" +
+            "Trân trọng,\n" +
+            "Đội ngũ Chocopine 🍰"
+        );
+        mailSender.send(message);
+    }
+
     public void sendNewStaffEmail(String toEmail, String fullName, String rawPassword) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/admin/vouchers")
-
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminMaGiamGiaController {
 
     @Autowired
@@ -49,6 +49,12 @@ public class AdminMaGiamGiaController {
         return ResponseEntity.ok(
                 adminMaGiamGiaService.update(id, request)
         );
+    }
+
+    @PostMapping("/{id}/send-email")
+    public ResponseEntity<?> sendPromoEmail(@PathVariable Long id) {
+        int soEmailDaGui = adminMaGiamGiaService.sendPromoEmailToAllCustomers(id);
+        return ResponseEntity.ok("Đã gửi email khuyến mãi thành công đến " + soEmailDaGui + " khách hàng!");
     }
 
     @DeleteMapping("/{id}")
