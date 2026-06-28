@@ -44,7 +44,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
                 .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
 
-                // Admin only
+                // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
+                .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                .requestMatchers("/api/v1/admin/reviews", "/api/v1/admin/reviews/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                // Admin only (các phần còn lại)
                 .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
 
                 // Admin + Staff

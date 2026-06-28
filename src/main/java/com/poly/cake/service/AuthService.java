@@ -34,6 +34,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final RedisTokenService redisTokenService;
     private final JavaMailSender mailSender;
+    private final EmailService emailService;
 
     // [SỬA] Dùng SecureRandom thay cho Random để tạo OTP an toàn hơn
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -167,8 +168,8 @@ public class AuthService {
             user.setOtpHetHan(LocalDateTime.now().plusMinutes(5)); // Ví dụ OTP sống 5 phút
             nguoiDungRepository.save(user);
 
-            // Gọi service gửi email ở đây...
-            // emailService.sendPasswordResetOtp(user.getEmail(), otp);
+            // Gửi OTP qua email
+            emailService.sendPasswordResetOtp(user.getEmail(), otp);
         }
 
         // 3. POKER FACE: Luôn luôn trả về đúng 1 câu này, bất kể lệnh if ở trên có chạy hay không!

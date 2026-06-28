@@ -44,7 +44,21 @@ public class DanhGiaDto {
     @Data
     public static class DonHangDanhGiaResponse {
         private Long donHangId;
-        private boolean daDanhGia;          // đơn này đã được đánh giá chưa
+        private boolean daDanhGia;
         private List<Response> danhSach;
+    }
+
+    /** ✅ THÊM MỚI: Thống kê tổng quan cho admin */
+    @Data
+    public static class StatsResponse {
+        private long tong;
+        private long chuaTraLoi;
+        private long biAn;
+        private double trungBinhSao;
+        private long sao5;
+        private long sao4;
+        private long sao3;
+        private long sao2;
+        private long sao1;
     }
 }
