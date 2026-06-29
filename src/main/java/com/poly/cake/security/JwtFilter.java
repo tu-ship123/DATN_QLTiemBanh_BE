@@ -29,7 +29,8 @@ public class JwtFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         // [SỬA LỖI] Bỏ qua kiểm tra Token nếu là API Auth
-        if (request.getServletPath().startsWith("/api/v1/auth/")) {
+        String path = request.getServletPath();
+        if (path.startsWith("/api/v1/auth/") && !path.equals("/api/v1/auth/logout")) {
             filterChain.doFilter(request, response);
             return;
         }
