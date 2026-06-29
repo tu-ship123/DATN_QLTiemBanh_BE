@@ -431,6 +431,62 @@ public class AdminOrderService {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // T057 – TỪ CHỐI THIẾT KẾ (reject-design)
+    //
+    // Luồng:
+    //   Nhân viên nhấn "Từ chối thiết kế" + nhập lý do
+    //   → Kiểm tra đơn có thiết kế 3D và đang ở DA_XAC_NHAN
+    //   → Chuyển đơn về CHO_XAC_NHAN (khách sửa lại thiết kế)
+    //   → Lưu lý do vào lyDoHuy (tái sử dụng field)
+    //   → Ghi audit log
+    //   → Thông báo khách cần chỉnh sửa lại thiết kế
+    // ═══════════════════════════════════════════════════════════════════════════
+    @Transactional
+    public OrderDto.Response rejectDesign(Long orderId, String lyDo, String emailNhanVien) {
+        // 1. Tìm đơn hàng
+        DonHang donHang = findOrder(orderId);
+        NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
+
+        // 2. Kiểm tra bắt buộc nhập lý do
+        if (lyDo == null || lyDo.trim().isEmpty()) {
+            throw new RuntimeException("Bắt buộc phải nhập lý do từ chối thiết kế!");
+        }
+
+        // 3. Kiểm tra đơn phải có thiết kế 3D
+        String designJson = donHang.getThietKeBanhJson();
+        if (designJson == null || designJson.trim().isEmpty()) {
+            throw new RuntimeException("Đơn hàng HD-" + orderId + " không có thiết kế bánh 3D để từ chối!");
+        }
+
+        // 4. Chỉ từ chối khi đơn đang ở DA_XAC_NHAN
+        String trangThaiHienTai = donHang.getTrangThai();
+        if (!"DA_XAC_NHAN".equals(trangThaiHienTai)) {
+            throw new RuntimeException(
+                    "Chỉ có thể từ chối thiết kế khi đơn ở trạng thái DA_XAC_NHAN! " +
+                    "Trạng thái hiện tại: " + trangThaiHienTai);
+        }
+
+        // 5. Quay đơn về CHO_XAC_NHAN để khách sửa lại thiết kế
+        donHang.setTrangThai("CHO_XAC_NHAN");
+        donHang.setNhanVien(nhanVien);
+        donHang.setLyDoHuy("Từ chối thiết kế: " + lyDo.trim());
+
+        // 6. Ghi audit log
+        appendMiniAuditLog(donHang, nhanVien.getHoTen(),
+                "Từ chối thiết kế 3D → quay về CHO_XAC_NHAN. Lý do: " + lyDo.trim());
+
+        DonHang saved = donHangRepository.save(donHang);
+
+        // 7. Thông báo khách cần chỉnh sửa lại thiết kế
+        notifyUser(saved,
+                "⚠️ Đơn hàng HD-" + orderId + " – Thiết kế bánh của bạn chưa được duyệt. " +
+                "Lý do: " + lyDo.trim() + ". Vui lòng cập nhật lại thiết kế và đặt lại.");
+
+        return mapToResponseDto(saved);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // HÀM PHỤ TRỢ T056 – Parse phụ kiện từ JSON thiết kế
     // ═══════════════════════════════════════════════════════════════════════════
 

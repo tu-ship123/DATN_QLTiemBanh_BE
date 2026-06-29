@@ -126,4 +126,25 @@ public class AdminOrderController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // T057 – TỪ CHỐI THIẾT KẾ BÁNH 3D
+    // Nhân viên nhấn "Từ chối" + nhập lý do → Đơn về CHO_XAC_NHAN + báo khách sửa lại
+    // ─────────────────────────────────────────────────────────────────────────
+    @PutMapping("/{id}/reject-design")
+    @Operation(
+        summary = "Từ chối thiết kế bánh 3D",
+        description = "Nhân viên từ chối thiết kế + nhập lý do → đơn quay về CHO_XAC_NHAN " +
+                      "→ thông báo khách sửa lại thiết kế. " +
+                      "Chỉ áp dụng cho đơn có thiết kế 3D và đang ở trạng thái DA_XAC_NHAN."
+    )
+    public ResponseEntity<?> rejectDesign(@PathVariable Long id,
+                                          @RequestParam String lyDo,
+                                          Authentication authentication) {
+        try {
+            return ResponseEntity.ok(adminOrderService.rejectDesign(id, lyDo, authentication.getName()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
