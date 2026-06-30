@@ -16,6 +16,11 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
     @org.springframework.data.jpa.repository.Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon - :qty WHERE s.id = :id AND s.soLuongTon >= :qty")
     int truSoLuongTon(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("qty") int qty);
 
+    // Hoàn lại tồn kho khi hủy đơn (ngược lại với truSoLuongTon)
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon + :qty WHERE s.id = :id")
+    int congSoLuongTon(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("qty") int qty);
+
     // Tìm theo tên sản phẩm
     List<SanPham> findByTenSanPhamContainingIgnoreCase(String keyword);
 

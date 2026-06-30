@@ -11,6 +11,7 @@ public class PosOrderDto {
         private String emailKhachHang; // Nếu là khách vãng lai thì truyền null hoặc "khachvanglai@gmail.com"
         private String ghiChu;
         private List<ItemRequest> items;
+        private String phuongThucThanhToan; // "TIEN_MAT" (mặc định) hoặc "VIET_QR"
     }
 
     @Data

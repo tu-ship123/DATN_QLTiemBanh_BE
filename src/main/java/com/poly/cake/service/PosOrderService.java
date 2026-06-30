@@ -53,7 +53,11 @@ public class PosOrderService {
         donHang.setKhachHang(khachHang);
         donHang.setNhanVien(nhanVien);
         donHang.setNguonDon("POS");
-        donHang.setTrangThai("DA_XAC_NHAN"); // Mua tại quầy thì mặc định xác nhận luôn
+        // Mua tại quầy (POS) không đi qua luồng sản xuất/giao hàng như đơn online:
+        // - Trả tiền mặt ngay tại quầy -> coi như hoàn tất giao dịch luôn.
+        // - Trả qua QR -> tạm để DA_XAC_NHAN, chờ nhân viên xác nhận đã nhận tiền (API confirm-paid) mới chuyển HOAN_THANH.
+        boolean laTienMat = !"VIET_QR".equalsIgnoreCase(request.getPhuongThucThanhToan());
+        donHang.setTrangThai(laTienMat ? "HOAN_THANH" : "DA_XAC_NHAN");
         donHang.setNgayTao(LocalDateTime.now());
         donHang.setGhiChu(request.getGhiChu());
         donHang.setTongTien(BigDecimal.ZERO); // Tạm thời gán bằng 0 để cộng dồn sau
@@ -119,6 +123,48 @@ public class PosOrderService {
         response.setReceiptText(receiptText);
 
         return response;
+    }
+
+    @Transactional
+    public void confirmPosOrderPaid(Long donHangId, String emailNhanVien) {
+        DonHang donHang = donHangRepository.findById(donHangId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn POS: " + donHangId));
+
+        if (!"POS".equals(donHang.getNguonDon())) {
+            throw new RuntimeException("Đây không phải hóa đơn bán tại quầy, không thể xác nhận bằng chức năng này!");
+        }
+
+        if (!"DA_XAC_NHAN".equals(donHang.getTrangThai())) {
+            throw new RuntimeException("Hóa đơn không ở trạng thái chờ thanh toán QR!");
+        }
+
+        // Mua tại quầy: khách đã quét QR + nhận hàng trực tiếp -> hoàn tất luôn, không qua sản xuất/giao hàng
+        donHang.setTrangThai("HOAN_THANH");
+        donHangRepository.save(donHang);
+    }
+
+    @Transactional
+    public void cancelPosOrder(Long donHangId, String emailNhanVien) {
+        DonHang donHang = donHangRepository.findById(donHangId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn POS: " + donHangId));
+
+        if (!"POS".equals(donHang.getNguonDon())) {
+            throw new RuntimeException("Đây không phải hóa đơn bán tại quầy, không thể hủy bằng chức năng này!");
+        }
+
+        // Chỉ cho hủy khi đơn còn đang chờ khách quét QR thanh toán (chưa hoàn tất giao dịch)
+        if (!"DA_XAC_NHAN".equals(donHang.getTrangThai())) {
+            throw new RuntimeException("Hóa đơn đã được xử lý tiếp theo, không thể hủy vào lúc này!");
+        }
+
+        // Hoàn lại tồn kho đã trừ lúc tạo đơn
+        for (ChiTietDonHang chiTiet : donHang.getChiTietDonHangs()) {
+            sanPhamRepository.congSoLuongTon(chiTiet.getSanPham().getId(), chiTiet.getSoLuong());
+        }
+
+        donHang.setTrangThai("DA_HUY");
+        donHang.setLyDoHuy("Nhân viên hủy mã QR trước khi khách thanh toán (Hóa đơn quầy)");
+        donHangRepository.save(donHang);
     }
 
     // Hàm phụ định dạng văn bản in hóa đơn cân đối
