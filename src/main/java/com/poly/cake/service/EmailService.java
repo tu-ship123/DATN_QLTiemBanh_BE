@@ -1,15 +1,16 @@
 package com.poly.cake.service;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    private final JavaMailSender mailSender;
 
     // ✅ Gửi OTP quên mật khẩu
     public void sendPasswordResetOtp(String toEmail, String otp) {
@@ -17,12 +18,12 @@ public class EmailService {
         message.setTo(toEmail);
         message.setSubject("Mã xác nhận đặt lại mật khẩu - Chocopine");
         message.setText(
-            "Xin chào,\n\n" +
-            "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.\n\n" +
-            "Mã OTP của bạn là: " + otp + "\n\n" +
-            "Mã này có hiệu lực trong 5 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.\n\n" +
-            "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.\n\n" +
-            "Trân trọng,\nĐội ngũ Chocopine"
+                "Xin chào,\n\n" +
+                        "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.\n\n" +
+                        "Mã OTP của bạn là: " + otp + "\n\n" +
+                        "Mã này có hiệu lực trong 5 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.\n\n" +
+                        "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.\n\n" +
+                        "Trân trọng,\nĐội ngũ Chocopine"
         );
         mailSender.send(message);
     }
@@ -45,21 +46,21 @@ public class EmailService {
                 : "";
 
         message.setText(
-            "Xin chào " + hoTen + ",\n\n" +
-            "🎂 Chocopine gửi đến bạn một ưu đãi đặc biệt!\n\n" +
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-            "   MÃ GIẢM GIÁ: " + maCode + "\n" +
-            "   Nội dung: " + loaiGiam + dieuKien + "\n" +
-            "   Hạn sử dụng: " + ngayHetHan + "\n" +
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-            "👉 Cách sử dụng:\n" +
-            "   1. Truy cập website Chocopine\n" +
-            "   2. Chọn sản phẩm yêu thích và thêm vào giỏ hàng\n" +
-            "   3. Nhập mã \"" + maCode + "\" tại bước thanh toán\n" +
-            "   4. Tận hưởng ưu đãi!\n\n" +
-            "Đừng bỏ lỡ cơ hội này nhé! Mã chỉ có hiệu lực đến " + ngayHetHan + ".\n\n" +
-            "Trân trọng,\n" +
-            "Đội ngũ Chocopine 🍰"
+                "Xin chào " + hoTen + ",\n\n" +
+                        "🎂 Chocopine gửi đến bạn một ưu đãi đặc biệt!\n\n" +
+                        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                        "   MÃ GIẢM GIÁ: " + maCode + "\n" +
+                        "   Nội dung: " + loaiGiam + dieuKien + "\n" +
+                        "   Hạn sử dụng: " + ngayHetHan + "\n" +
+                        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                        "👉 Cách sử dụng:\n" +
+                        "   1. Truy cập website Chocopine\n" +
+                        "   2. Chọn sản phẩm yêu thích và thêm vào giỏ hàng\n" +
+                        "   3. Nhập mã \"" + maCode + "\" tại bước thanh toán\n" +
+                        "   4. Tận hưởng ưu đãi!\n\n" +
+                        "Đừng bỏ lỡ cơ hội này nhé! Mã chỉ có hiệu lực đến " + ngayHetHan + ".\n\n" +
+                        "Trân trọng,\n" +
+                        "Đội ngũ Chocopine 🍰"
         );
         mailSender.send(message);
     }

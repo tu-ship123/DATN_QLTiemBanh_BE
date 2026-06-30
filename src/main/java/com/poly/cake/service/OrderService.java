@@ -8,12 +8,17 @@ import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
 import com.poly.cake.repository.ThanhToanRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,72 +31,53 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderService {
 
-    @Autowired
-    private DonHangRepository donHangRepository;
+    private final DonHangRepository donHangRepository;
 
-    @Autowired
-    private ChiTietDonHangRepository chiTietDonHangRepository;
+    private final ChiTietDonHangRepository chiTietDonHangRepository;
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final SanPhamRepository sanPhamRepository;
 
-    @Autowired
-    private NotificationService notificationService;
+    private final NotificationService notificationService;
 
-    @Autowired
-    private ThanhToanRepository thanhToanRepository;
+    private final ThanhToanRepository thanhToanRepository;
 
     // T055 – Validator thiết kế bánh 3D
-    @Autowired
-    private CakeDesignValidator cakeDesignValidator;
+    private final CakeDesignValidator cakeDesignValidator;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. TẠO ĐƠN HÀNG (CHECKOUT)
-    //    T055: Nếu request có cakeDesignJson → validate → lưu thietKeBanhJson
-    //          và tự động ghi chú kích thước vào ghi_chu để thợ làm bánh biết
     // ═══════════════════════════════════════════════════════════════════════════
     @Transactional
     public OrderDto.Response createOrder(OrderDto.Request request, String emailNguoiDung) {
 
-        // ── Kiểm tra tài khoản ────────────────────────────────────────────────
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin tài khoản!"));
 
-        // ── Kiểm tra ngày giao ────────────────────────────────────────────────
         if (request.getNgayGiaoHang() == null || request.getNgayGiaoHang().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Ngày giao hàng không hợp lệ! Phải chọn từ ngày hôm nay trở đi.");
+            throw new BusinessException("Ngày giao hàng không hợp lệ! Phải chọn từ ngày hôm nay trở đi.");
         }
 
-        // ── Kiểm tra giỏ hàng ────────────────────────────────────────────────
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Giỏ hàng trống! Không thể đặt hàng.");
+            throw new BusinessException("Giỏ hàng trống! Không thể đặt hàng.");
         }
 
-        // ── T055: Validate & parse dữ liệu thiết kế 3D ───────────────────────
-        // validateAndParse() sẽ:
-        //   • Trả về null  nếu cakeDesignJson == null (đơn bình thường)
-        //   • Throw BusinessException nếu JSON sai cấu trúc hoặc thiếu kích thước
-        //   • Trả về Map đã parse nếu hợp lệ
         Map<String, Object> designMap = cakeDesignValidator.validateAndParse(request.getCakeDesignJson());
 
-        // ── Tính tiền ─────────────────────────────────────────────────────────
         double tongTienHang = request.getItems().stream()
                 .mapToDouble(item -> item.getDonGia() * item.getSoLuong())
                 .sum();
         double phiShip = (tongTienHang >= 500_000) ? 0.0 : 30_000.0;
         BigDecimal tongTienThanhToan = BigDecimal.valueOf(tongTienHang + phiShip);
 
-        // ── Xây dựng ghi chú ─────────────────────────────────────────────────
-        // Nếu có thiết kế 3D → tự động prepend "[BÁNH 3D] Kích thước: ..."
-        // để mỗi lần thợ mở đơn sẽ LUÔN thấy kích thước ngay đầu ghi chú.
         String ghiChuCuoiCung;
         if (designMap != null) {
             ghiChuCuoiCung = cakeDesignValidator.buildGhiChuKichThuoc(designMap, request.getGhiChu());
@@ -99,33 +85,29 @@ public class OrderService {
             ghiChuCuoiCung = request.getGhiChu();
         }
 
-        // ── Tạo đơn hàng ─────────────────────────────────────────────────────
         DonHang donHang = new DonHang();
         donHang.setKhachHang(khachHang);
         donHang.setDiaChiGiao(request.getDiaChiGiaoHang());
         donHang.setNgayGiaoDuKien(request.getNgayGiaoHang().atTime(12, 0));
         donHang.setTongTien(tongTienThanhToan);
-        donHang.setGhiChu(ghiChuCuoiCung);          // ← ghi chú đã ghép kích thước
-        donHang.setTrangThai("CHO_XAC_NHAN");
+        donHang.setGhiChu(ghiChuCuoiCung);
+        // Thay thế String bằng Enum
+        donHang.setTrangThai(TrangThaiDonHang.CHO_XAC_NHAN);
         donHang.setNguonDon("ONLINE");
 
-        // T055 – Lưu JSON thiết kế 3D (nếu có)
         if (designMap != null) {
             try {
-                // Lưu lại dạng chuỗi JSON đã được parse-rồi-stringify để đảm bảo sạch
                 donHang.setThietKeBanhJson(objectMapper.writeValueAsString(designMap));
             } catch (Exception e) {
-                // Không bao giờ xảy ra vì designMap đến từ parse thành công ở trên
                 donHang.setThietKeBanhJson(request.getCakeDesignJson());
             }
         }
 
         DonHang savedDonHang = donHangRepository.save(donHang);
 
-        // ── Lưu chi tiết đơn ─────────────────────────────────────────────────
         List<ChiTietDonHang> chiTietList = request.getItems().stream().map(itemDto -> {
             SanPham sanPham = sanPhamRepository.findById(itemDto.getSanPhamId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại!"));
             ChiTietDonHang chiTiet = new ChiTietDonHang();
             chiTiet.setDonHang(savedDonHang);
             chiTiet.setSanPham(sanPham);
@@ -137,7 +119,6 @@ public class OrderService {
         chiTietDonHangRepository.saveAll(chiTietList);
         savedDonHang.setChiTietDonHangs(chiTietList);
 
-        // ── Thông báo admin ───────────────────────────────────────────────────
         String loiNhanAdmin = designMap != null
                 ? "🎂 [BÁNH 3D] Đơn hàng mới HD-" + savedDonHang.getId() + " có thiết kế bánh 3D!"
                 : "TING TING! Có đơn hàng mới được đặt: HD-" + savedDonHang.getId();
@@ -151,7 +132,7 @@ public class OrderService {
     // ═══════════════════════════════════════════════════════════════════════════
     public List<OrderDto.Response> getOrdersByUser(String email) {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
         return donHangRepository.findByKhachHangOrderByNgayTaoDesc(khachHang)
                 .stream().map(this::mapToResponseDto).collect(Collectors.toList());
     }
@@ -167,9 +148,16 @@ public class OrderService {
     // ═══════════════════════════════════════════════════════════════════════════
     // 4. XEM CHI TIẾT ĐƠN HÀNG BY ID
     // ═══════════════════════════════════════════════════════════════════════════
-    public OrderDto.Response getOrderById(Long id) {
+    public OrderDto.Response getOrderById(Long id, String email, String role) {
         DonHang donHang = donHangRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng mã số: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + id));
+
+        if ("ROLE_KHACH_HANG".equals(role) || "KHACH_HANG".equals(role)) {
+            if (donHang.getKhachHang() == null || !donHang.getKhachHang().getEmail().equals(email)) {
+                throw new ForbiddenException("Bạn không có quyền xem đơn hàng này!");
+            }
+        }
+
         return mapToResponseDto(donHang);
     }
 
@@ -179,29 +167,38 @@ public class OrderService {
     @Transactional
     public OrderDto.Response processOrder(Long id, OrderProcessDto request, String emailNhanVien) {
         DonHang donHang = donHangRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại."));
 
         NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên xử lý!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin nhân viên xử lý!"));
 
         donHang.setNhanVien(nhanVien);
 
-        String trangThaiMoi    = request.getTrangThai().toUpperCase();
-        String trangThaiHienTai = donHang.getTrangThai();
+        // Chuyển String thành Enum an toàn
+        TrangThaiDonHang trangThaiMoi;
+        try {
+            trangThaiMoi = TrangThaiDonHang.valueOf(request.getTrangThai().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Trạng thái đơn hàng không hợp lệ!");
+        }
 
-        if (trangThaiHienTai.equals("HOAN_THANH") || trangThaiHienTai.equals("DA_HUY")) {
+        TrangThaiDonHang trangThaiHienTai = donHang.getTrangThai();
+
+        if (trangThaiHienTai == TrangThaiDonHang.HOAN_THANH || trangThaiHienTai == TrangThaiDonHang.DA_HUY) {
             throw new BusinessException("Đơn hàng đã chốt (Giao/Hủy/Hoàn tiền) thì không thể thay đổi trạng thái được nữa!");
         }
-        if (trangThaiHienTai.equals("DANG_GIAO") &&
-                (trangThaiMoi.equals("CHO_XAC_NHAN") || trangThaiMoi.equals("DANG_CHUAN_BI"))) {
+
+        // Cập nhật DANG_CHUAN_BI thành DANG_LAM cho khớp Enum
+        if (trangThaiHienTai == TrangThaiDonHang.DANG_GIAO &&
+                (trangThaiMoi == TrangThaiDonHang.CHO_XAC_NHAN || trangThaiMoi == TrangThaiDonHang.DANG_LAM)) {
             throw new BusinessException("Đơn hàng đang giao, không thể lùi trạng thái!");
         }
 
         donHang.setTrangThai(trangThaiMoi);
 
-        if ("DA_HUY".equals(trangThaiMoi)) {
+        if (trangThaiMoi == TrangThaiDonHang.DA_HUY) {
             if (request.getLyDoHuy() == null || request.getLyDoHuy().trim().isEmpty()) {
-                throw new RuntimeException("Bắt buộc phải nhập lý do khi hủy đơn hàng!");
+                throw new BusinessException("Bắt buộc phải nhập lý do khi hủy đơn hàng!");
             }
             donHang.setLyDoHuy(request.getLyDoHuy());
         }
@@ -210,8 +207,8 @@ public class OrderService {
 
         if (updatedDonHang.getKhachHang() != null &&
                 !"khachvanglai@gmail.com".equals(updatedDonHang.getKhachHang().getEmail())) {
-            String loiNhan = "Đơn hàng HD-" + id + " của bạn vừa chuyển sang trạng thái: " + trangThaiMoi;
-            if ("DA_HUY".equals(trangThaiMoi)) {
+            String loiNhan = "Đơn hàng HD-" + id + " của bạn vừa chuyển sang trạng thái: " + trangThaiMoi.name();
+            if (trangThaiMoi == TrangThaiDonHang.DA_HUY) {
                 loiNhan += ". Lý do: " + request.getLyDoHuy();
             }
             notificationService.notifyOrderStatusToUser(updatedDonHang.getKhachHang().getEmail(), loiNhan);
@@ -226,66 +223,82 @@ public class OrderService {
     @Transactional
     public void cancelOrder(Long id, String emailNguoiDung) {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
-                .orElseThrow(() -> new RuntimeException("Tài khoản không hợp lệ."));
+                .orElseThrow(() -> new BusinessException("Tài khoản không hợp lệ."));
 
         DonHang donHang = donHangRepository.findByIdAndKhachHang(id, khachHang)
-                .orElseThrow(() -> new RuntimeException(
+                .orElseThrow(() -> new ForbiddenException(
                         "Đơn hàng không thuộc quyền sở hữu của bạn hoặc không tồn tại."));
 
-        if (!"CHO_XAC_NHAN".equals(donHang.getTrangThai())) {
-            throw new RuntimeException("Đơn hàng đã được xử lý, không thể tự hủy vào lúc này!");
+        // Dùng toán tử == để so sánh Enum
+        if (donHang.getTrangThai() != TrangThaiDonHang.CHO_XAC_NHAN) {
+            throw new BusinessException("Đơn hàng đã được xử lý, không thể tự hủy vào lúc này!");
         }
 
-        donHang.setTrangThai("DA_HUY");
+        donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
         donHang.setLyDoHuy("Khách hàng tự hủy trên web");
         donHangRepository.save(donHang);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 7. T055 – LẤY DỮ LIỆU THIẾT KẾ 3D (đã có từ trước, giữ nguyên)
+    // 7. LẤY DỮ LIỆU THIẾT KẾ 3D
     // ═══════════════════════════════════════════════════════════════════════════
     public Map<String, Object> get3DCakeDesign(Long orderId) {
         DonHang donHang = donHangRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng có ID: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng có ID: " + orderId));
 
         String emailUserHienTai = SecurityContextHolder.getContext().getAuthentication().getName();
         NguoiDung userHienTai = nguoiDungRepository.findByEmail(emailUserHienTai)
-                .orElseThrow(() -> new RuntimeException("Lỗi xác thực: Không tìm thấy tài khoản!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Lỗi xác thực: Không tìm thấy tài khoản!"));
 
-        // Chặn IDOR: khách chỉ xem đơn của mình
         if ("KHACH_HANG".equals(userHienTai.getQuyen())) {
             if (donHang.getKhachHang() == null || !donHang.getKhachHang().getId().equals(userHienTai.getId())) {
-                throw new RuntimeException("Bạn không có quyền xem thiết kế của đơn hàng này!");
+                throw new ForbiddenException("Bạn không có quyền xem thiết kế của đơn hàng này!");
             }
         }
 
         String designJson = donHang.getThietKeBanhJson();
         if (designJson == null || designJson.trim().isEmpty()) {
-            throw new RuntimeException("Đơn hàng này không có dữ liệu thiết kế 3D");
+            throw new BusinessException("Đơn hàng này không có dữ liệu thiết kế 3D");
         }
 
         try {
             return objectMapper.readValue(designJson, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new RuntimeException("Lỗi khi parse dữ liệu 3D Design: " + e.getMessage());
+            throw new BusinessException("Lỗi khi parse dữ liệu 3D Design: " + e.getMessage());
         }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SEPAY WEBHOOK: Cập nhật trạng thái sau khi thanh toán
+    // soTienNhanDuoc: số tiền thực tế ngân hàng báo về trong webhook, dùng để
+    // đối chiếu với tổng tiền đơn hàng, tránh đánh dấu "đã thanh toán đủ"
+    // cho một giao dịch chuyển khoản thiếu tiền nhưng đúng nội dung DH.
     // ═══════════════════════════════════════════════════════════════════════════
     @Transactional
-    public void updatePaymentStatus(Long orderId) {
+    public void updatePaymentStatus(Long orderId, BigDecimal soTienNhanDuoc) {
         DonHang donHang = donHangRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + orderId));
+
+        BigDecimal tongTien = donHang.getTongTien() != null ? donHang.getTongTien() : BigDecimal.ZERO;
+
+        // Đối chiếu số tiền: nếu chuyển thiếu so với tổng tiền đơn hàng thì
+        // KHÔNG đánh dấu thanh toán thành công, chỉ ghi nhận cảnh báo để admin xử lý thủ công.
+        if (soTienNhanDuoc == null || soTienNhanDuoc.compareTo(tongTien) < 0) {
+            log.warn("⚠️ Webhook SePay: đơn DH{} cần {} nhưng chỉ nhận được {} -> KHÔNG đánh dấu đã thanh toán, giữ nguyên trạng thái chờ.",
+                    orderId, tongTien, soTienNhanDuoc);
+            throw new BusinessException(
+                    "Số tiền chuyển khoản (" + soTienNhanDuoc + ") nhỏ hơn tổng tiền đơn hàng (" + tongTien + ")");
+        }
 
         thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
             tt.setTrangThai("THANH_CONG");
+            tt.setSoTien(soTienNhanDuoc);
             tt.setThoiDiemThanhToan(LocalDateTime.now());
             thanhToanRepository.save(tt);
         });
 
-        donHang.setTrangThai("DA_XAC_NHAN");
+        // Cập nhật trạng thái bằng Enum
+        donHang.setTrangThai(TrangThaiDonHang.DA_XAC_NHAN);
         donHangRepository.save(donHang);
 
         notificationService.notifyNewOrderToAdmins(
@@ -316,7 +329,8 @@ public class OrderService {
             dto.setTongTien(donHang.getTongTien().doubleValue());
         }
 
-        dto.setTrangThai(donHang.getTrangThai());
+        // Lấy tên chuỗi từ Enum để gán vào DTO
+        dto.setTrangThai(donHang.getTrangThai().name());
         dto.setGhiChu(donHang.getGhiChu());
 
         if (donHang.getNhanVien() != null) {
@@ -324,7 +338,6 @@ public class OrderService {
         }
         dto.setLyDoHuy(donHang.getLyDoHuy());
 
-        // T055 – Cho FE biết đơn có thiết kế 3D không (để hiện nút "Xem 3D")
         dto.setCoThietKe3D(donHang.getThietKeBanhJson() != null &&
                 !donHang.getThietKeBanhJson().trim().isEmpty());
 

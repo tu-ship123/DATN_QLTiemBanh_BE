@@ -1,5 +1,8 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.GioHangDto;
 import com.poly.cake.entity.ChiTietGioHang;
 import com.poly.cake.entity.GioHang;
@@ -8,26 +11,26 @@ import com.poly.cake.entity.SanPham;
 import com.poly.cake.repository.GioHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class GioHangService {
 
-    @Autowired
-    private GioHangRepository gioHangRepository;
+    private final GioHangRepository gioHangRepository;
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final SanPhamRepository sanPhamRepository;
 
     // ─── LẤY GIỎ HÀNG CỦA USER (tạo mới nếu chưa có) ──────────────────────
     @Transactional
@@ -44,20 +47,20 @@ public class GioHangService {
         GioHang gioHang = layHoacTaoGioHang(nguoiDung);
 
         SanPham sanPham = sanPhamRepository.findById(request.getSanPhamId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + request.getSanPhamId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + request.getSanPhamId()));
 
         if (!"DANG_BAN".equals(sanPham.getTrangThai())) {
-            throw new RuntimeException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" hiện không còn bán.");
+            throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" hiện không còn bán.");
         }
 
         if (sanPham.getSoLuongTon() <= 0) {
-            throw new RuntimeException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" đã hết hàng.");
+            throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" đã hết hàng.");
         }
 
         // Kiểm tra xem sản phẩm đã có trong giỏ chưa (không tính thiết kế 3D)
         Optional<ChiTietGioHang> chiTietTonTai = gioHang.getChiTietGioHangs().stream()
                 .filter(ct -> ct.getSanPham().getId().equals(sanPham.getId())
-                        && ct.getThietKeBanhJson() == null && request.getThietKeBanhJson() == null)
+                        && Objects.equals(ct.getThietKeBanhJson(), request.getThietKeBanhJson()))
                 .findFirst();
 
         if (chiTietTonTai.isPresent()) {
@@ -65,13 +68,13 @@ public class GioHangService {
             ChiTietGioHang chiTiet = chiTietTonTai.get();
             int soLuongMoi = chiTiet.getSoLuong() + request.getSoLuong();
             if (soLuongMoi > sanPham.getSoLuongTon()) {
-                throw new RuntimeException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
+                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             chiTiet.setSoLuong(soLuongMoi);
         } else {
             // Thêm mới
             if (request.getSoLuong() > sanPham.getSoLuongTon()) {
-                throw new RuntimeException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
+                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             ChiTietGioHang chiTietMoi = ChiTietGioHang.builder()
                     .gioHang(gioHang)
@@ -95,14 +98,14 @@ public class GioHangService {
         ChiTietGioHang chiTiet = gioHang.getChiTietGioHangs().stream()
                 .filter(ct -> ct.getId().equals(chiTietId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ hàng!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm trong giỏ hàng!"));
 
         if (request.getSoLuong() <= 0) {
             // Xóa nếu số lượng <= 0
             gioHang.getChiTietGioHangs().remove(chiTiet);
         } else {
             if (request.getSoLuong() > chiTiet.getSanPham().getSoLuongTon()) {
-                throw new RuntimeException("Số lượng vượt quá tồn kho! Còn lại: " + chiTiet.getSanPham().getSoLuongTon());
+                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + chiTiet.getSanPham().getSoLuongTon());
             }
             chiTiet.setSoLuong(request.getSoLuong());
         }
@@ -121,7 +124,7 @@ public class GioHangService {
                 .removeIf(ct -> ct.getId().equals(chiTietId));
 
         if (!removed) {
-            throw new RuntimeException("Không tìm thấy sản phẩm trong giỏ hàng!");
+            throw new ResourceNotFoundException("Không tìm thấy sản phẩm trong giỏ hàng!");
         }
 
         gioHangRepository.save(gioHang);
@@ -140,7 +143,7 @@ public class GioHangService {
     // ─── HELPER: Tìm người dùng ──────────────────────────────────────────────
     private NguoiDung timNguoiDung(String email) {
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản: " + email));
     }
 
     // ─── HELPER: Lấy hoặc tạo giỏ hàng ─────────────────────────────────────

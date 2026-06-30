@@ -39,7 +39,7 @@ public class StaffChamCongController {
      */
     @GetMapping("/my-schedules")
     @Operation(summary = "Xem lịch ca hôm nay",
-               description = "Trả về danh sách ca được phân cho nhân viên đang đăng nhập trong ngày chỉ định (mặc định hôm nay)")
+            description = "Trả về danh sách ca được phân cho nhân viên đang đăng nhập trong ngày chỉ định (mặc định hôm nay)")
     public ResponseEntity<?> getMySchedules(
             @RequestParam(required = false) String date) {
         return ResponseEntity.ok(phanCaService.getMySchedules(date));
@@ -52,7 +52,7 @@ public class StaffChamCongController {
      */
     @GetMapping("/my-schedules/week")
     @Operation(summary = "Xem lịch ca cả tuần",
-               description = "Trả về danh sách ca của nhân viên trong khoảng ngày chỉ định")
+            description = "Trả về danh sách ca của nhân viên trong khoảng ngày chỉ định")
     public ResponseEntity<?> getMySchedulesInRange(
             @RequestParam(required = false) String tuNgay,
             @RequestParam(required = false) String denNgay) {
@@ -63,7 +63,7 @@ public class StaffChamCongController {
 
     @PostMapping("/checkin")
     @Operation(summary = "Check-in ca làm việc",
-               description = "Nhân viên chọn ca đã được phân, ghi nhận giờ vào và tính phút đi trễ")
+            description = "Nhân viên chọn ca đã được phân, ghi nhận giờ vào và tính phút đi trễ")
     public ResponseEntity<?> checkIn(@Valid @RequestBody StaffCheckinRequest request) {
         ChamCongResponse response = chamCongService.checkIn(request);
         return ResponseEntity.ok(response);
@@ -71,7 +71,7 @@ public class StaffChamCongController {
 
     @PostMapping("/checkout/{phanCaId}")
     @Operation(summary = "Check-out ca làm việc",
-               description = "Nhân viên chốt giờ ra, hệ thống tự động đánh dấu về sớm nếu ra trước giờ kết thúc ca")
+            description = "Nhân viên chốt giờ ra, hệ thống tự động đánh dấu về sớm nếu ra trước giờ kết thúc ca")
     public ResponseEntity<?> checkOut(@PathVariable Long phanCaId) {
         ChamCongResponse response = chamCongService.checkOut(phanCaId);
         return ResponseEntity.ok(response);

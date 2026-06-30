@@ -1,10 +1,14 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.MaGiamGiaDto;
 import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.repository.MaGiamGiaRepository;
 import com.poly.cake.repository.NguoiDungRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,16 +19,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class AdminMaGiamGiaService {
 
-    @Autowired
-    private MaGiamGiaRepository maGiamGiaRepository;
+    private final MaGiamGiaRepository maGiamGiaRepository;
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    @Autowired
-    private EmailService emailService;
+    private final EmailService emailService;
 
     // GET ALL
     public List<MaGiamGiaDto.Response> getAll() {
@@ -37,7 +39,7 @@ public class AdminMaGiamGiaService {
     // GET BY ID
     public MaGiamGiaDto.Response getById(Long id) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
         return mapToDto(voucher);
     }
 
@@ -45,10 +47,10 @@ public class AdminMaGiamGiaService {
     @Transactional
     public MaGiamGiaDto.Response create(MaGiamGiaDto.Request request) {
         if (maGiamGiaRepository.existsByMaCode(request.getMaCode())) {
-            throw new RuntimeException("Mã giảm giá đã tồn tại");
+            throw new BusinessException("Mã giảm giá đã tồn tại");
         }
         if (request.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Ngày hết hạn phải lớn hơn hiện tại");
+            throw new BusinessException("Ngày hết hạn phải lớn hơn hiện tại");
         }
 
         MaGiamGia voucher = new MaGiamGia();
@@ -68,7 +70,7 @@ public class AdminMaGiamGiaService {
     @Transactional
     public MaGiamGiaDto.Response update(Long id, MaGiamGiaDto.Request request) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
 
         voucher.setMaCode(request.getMaCode().toUpperCase());
         voucher.setLoaiGiamGia(request.getLoaiGiamGia());
@@ -86,13 +88,13 @@ public class AdminMaGiamGiaService {
     @Transactional(readOnly = true)
     public int sendPromoEmailToAllCustomers(Long voucherId) {
         MaGiamGia voucher = maGiamGiaRepository.findById(voucherId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
 
         if (!Boolean.TRUE.equals(voucher.getHoatDong())) {
-            throw new RuntimeException("Voucher chưa được kích hoạt, không thể gửi email");
+            throw new BusinessException("Voucher chưa được kích hoạt, không thể gửi email");
         }
         if (voucher.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Voucher đã hết hạn, không thể gửi email");
+            throw new BusinessException("Voucher đã hết hạn, không thể gửi email");
         }
 
         List<NguoiDung> khachHangList = nguoiDungRepository.findAll()
@@ -131,7 +133,7 @@ public class AdminMaGiamGiaService {
     @Transactional
     public void delete(Long id) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
         maGiamGiaRepository.delete(voucher);
     }
 

@@ -1,14 +1,19 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.PosOrderDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,32 +25,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PosOrderService {
 
-    @Autowired
-    private DonHangRepository donHangRepository;
-    @Autowired
-    private ChiTietDonHangRepository chiTietDonHangRepository;
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final DonHangRepository donHangRepository;
+    private final ChiTietDonHangRepository chiTietDonHangRepository;
+    private final NguoiDungRepository nguoiDungRepository;
+    private final SanPhamRepository sanPhamRepository;
 
     @Transactional
     public PosOrderDto.Response createPosOrder(PosOrderDto.Request request, String emailNhanVien) {
         // 1. Xác định nhân viên đang đứng quầy chốt đơn
         NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin nhân viên!"));
 
         // 2. Xác định khách hàng (Nếu trống thì dùng email của nhân viên đang xử lý đơn)
         String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isBlank())
                 ? emailNhanVien : request.getEmailKhachHang();
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng với email: " + emailKhach));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản khách hàng với email: " + emailKhach));
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Hóa đơn phải có ít nhất 1 sản phẩm!");
+            throw new BusinessException("Hóa đơn phải có ít nhất 1 sản phẩm!");
         }
 
         // 3. Khởi tạo đơn hàng POS
@@ -53,7 +55,10 @@ public class PosOrderService {
         donHang.setKhachHang(khachHang);
         donHang.setNhanVien(nhanVien);
         donHang.setNguonDon("POS");
-        donHang.setTrangThai("DA_XAC_NHAN"); // Mua tại quầy thì mặc định xác nhận luôn
+
+        // Đã sửa: Gán trạng thái bằng Enum thay vì String
+        donHang.setTrangThai(TrangThaiDonHang.DA_XAC_NHAN);
+
         donHang.setNgayTao(LocalDateTime.now());
         donHang.setGhiChu(request.getGhiChu());
         donHang.setTongTien(BigDecimal.ZERO); // Tạm thời gán bằng 0 để cộng dồn sau
@@ -67,13 +72,13 @@ public class PosOrderService {
 
         for (PosOrderDto.ItemRequest item : request.getItems()) {
             SanPham sanPham = sanPhamRepository.findById(item.getSanPhamId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm mã " + item.getSanPhamId() + " không tồn tại!"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm mã " + item.getSanPhamId() + " không tồn tại!"));
 
-            // [ĐÃ SỬA]: Chống Race Condition bằng Atomic Update trực tiếp dưới DB
+            // Chống Race Condition bằng Atomic Update trực tiếp dưới DB
             int updatedRows = sanPhamRepository.truSoLuongTon(item.getSanPhamId(), item.getSoLuong());
 
             if (updatedRows == 0) {
-                throw new RuntimeException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho lúc này!");
+                throw new BusinessException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho lúc này!");
             }
 
             // Tính tiền món
@@ -113,7 +118,10 @@ public class PosOrderService {
         PosOrderDto.Response response = new PosOrderDto.Response();
         response.setDonHangId(savedDonHang.getId());
         response.setTongTien(totalAmount);
-        response.setTrangThai(savedDonHang.getTrangThai());
+
+        // Đã sửa: Trích xuất chuỗi String từ Enum để map với DTO
+        response.setTrangThai(savedDonHang.getTrangThai().name());
+
         response.setNguonDon(savedDonHang.getNguonDon());
         response.setVietQrUrl(vietQrUrl);
         response.setReceiptText(receiptText);

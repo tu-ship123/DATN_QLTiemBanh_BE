@@ -1,5 +1,6 @@
 package com.poly.cake.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -51,7 +52,7 @@ public class AdminSanPhamController {
 
     @PostMapping
     public ResponseEntity<?> create(
-            @RequestBody SanPhamDto.Request request) {
+            @Valid @RequestBody SanPhamDto.Request request) {
 
         return ResponseEntity.ok(
                 adminSanPhamService.createProduct(request)
@@ -61,7 +62,7 @@ public class AdminSanPhamController {
     @PutMapping("/{id}")
     public ResponseEntity<?> update(
             @PathVariable Long id,
-            @RequestBody SanPhamDto.Request request) {
+            @Valid @RequestBody SanPhamDto.Request request) {
 
         return ResponseEntity.ok(
                 adminSanPhamService.updateProduct(id, request)

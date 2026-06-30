@@ -39,16 +39,10 @@ public class AdminDanhMucController {
 
     // CREATE
     @PostMapping
-public ResponseEntity<?> create(@Valid @RequestBody DanhMucDto.Request request) {
-
-        try {
-            return ResponseEntity.ok(
-                    adminDanhMucService.createDanhMuc(request)
-            );
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(e.getMessage());
-        }
+    public ResponseEntity<?> create(@Valid @RequestBody DanhMucDto.Request request) {
+        return ResponseEntity.ok(
+                adminDanhMucService.createDanhMuc(request)
+        );
     }
 
     // UPDATE
@@ -57,14 +51,9 @@ public ResponseEntity<?> create(@Valid @RequestBody DanhMucDto.Request request) 
             @PathVariable Long id,
             @RequestBody DanhMucDto.Request request) {
 
-        try {
-            return ResponseEntity.ok(
-                    adminDanhMucService.updateDanhMuc(id, request)
-            );
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(e.getMessage());
-        }
+        return ResponseEntity.ok(
+                adminDanhMucService.updateDanhMuc(id, request)
+        );
     }
 
     // DELETE
@@ -72,16 +61,10 @@ public ResponseEntity<?> create(@Valid @RequestBody DanhMucDto.Request request) 
     public ResponseEntity<?> delete(
             @PathVariable Long id) {
 
-        try {
-            adminDanhMucService.deleteDanhMuc(id);
+        adminDanhMucService.deleteDanhMuc(id);
 
-            return ResponseEntity.ok(
-                    "Xóa danh mục thành công!"
-            );
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(e.getMessage());
-        }
+        return ResponseEntity.ok(
+                "Xóa danh mục thành công!"
+        );
     }
 }

@@ -32,9 +32,9 @@ public class DonHang {
     @JoinColumn(name = "ma_giam_gia_id")
     private MaGiamGia maGiamGia;
 
-
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String trangThai = "CHO_XAC_NHAN";
+    private TrangThaiDonHang trangThai = TrangThaiDonHang.CHO_XAC_NHAN;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal tongTien;

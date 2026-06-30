@@ -5,12 +5,17 @@ import com.poly.cake.entity.SanPham;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
+    @Modifying
+    @Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon + :qty WHERE s.id = :id")
+    int congLaiSoLuongTon(@Param("id") Long id, @Param("qty") int qty);
+
     // Tạm thời chưa cần viết thêm hàm gì, JpaRepository đã cung cấp sẵn hàm findById() cho OrderService dùng rồi.
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon - :qty WHERE s.id = :id AND s.soLuongTon >= :qty")
@@ -38,4 +43,5 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
             @Param("trangThai") String trangThai,
             @Param("danhMucId") Long danhMucId
     );
+
 }

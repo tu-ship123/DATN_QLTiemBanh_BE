@@ -45,7 +45,7 @@ public class CakeDesignValidator {
         if (khungObj == null) {
             throw new BusinessException(
                     "Thiết kế bánh 3D thiếu thông tin 'khung'! " +
-                    "Vui lòng quay lại bước chọn khung và hoàn tất.");
+                            "Vui lòng quay lại bước chọn khung và hoàn tất.");
         }
 
         if (!(khungObj instanceof Map)) {
@@ -60,7 +60,7 @@ public class CakeDesignValidator {
         if (kichThuocObj == null) {
             throw new BusinessException(
                     "Bạn chưa nhập kích thước bánh! " +
-                    "Tại bước chọn khung, vui lòng điền Chiều cao (cm) và Đường kính (cm) của bánh.");
+                            "Tại bước chọn khung, vui lòng điền Chiều cao (cm) và Đường kính (cm) của bánh.");
         }
 
         if (!(kichThuocObj instanceof Map)) {

@@ -32,12 +32,8 @@ public class DanhGiaController {
             @PathVariable Long donHangId,
             @Valid @RequestBody DanhGiaDto.Request request,
             Authentication auth) {
-        try {
-            DanhGiaDto.Response result = danhGiaService.guiDanhGia(donHangId, request, auth.getName());
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        DanhGiaDto.Response result = danhGiaService.guiDanhGia(donHangId, request, auth.getName());
+        return ResponseEntity.ok(result);
     }
 
     // ─── Lấy trạng thái đánh giá của đơn hàng ───────────────────────────────
@@ -47,13 +43,9 @@ public class DanhGiaController {
     public ResponseEntity<?> layDanhGiaTheoDon(
             @PathVariable Long donHangId,
             Authentication auth) {
-        try {
-            DanhGiaDto.DonHangDanhGiaResponse result =
-                    danhGiaService.layDanhGiaTheoDon(donHangId, auth.getName());
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        DanhGiaDto.DonHangDanhGiaResponse result =
+                danhGiaService.layDanhGiaTheoDon(donHangId, auth.getName());
+        return ResponseEntity.ok(result);
     }
 
     // ─── Đánh giá công khai của sản phẩm (không cần đăng nhập) ──────────────

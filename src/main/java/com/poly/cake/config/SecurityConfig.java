@@ -30,6 +30,7 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
     private final AuthenticationProvider authenticationProvider;
     private final RateLimitingFilter rateLimitingFilter;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,36 +39,36 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Public endpoints
-                .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
-                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
+                        // Public endpoints
+                        .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
 
-                // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
-                .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
-                .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
-                .requestMatchers("/api/v1/admin/reviews", "/api/v1/admin/reviews/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
+                        .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers("/api/v1/admin/reviews", "/api/v1/admin/reviews/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
-                // Admin only (các phần còn lại)
-                .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
+                        // Admin only (các phần còn lại)
+                        .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
 
-                // Admin + Staff
-                .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        // Admin + Staff
+                        .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
-                // Cart & Orders — phải có .hasAnyAuthority() ngay liền sau
-                .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
-                    .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN") // ✅ gắn liền
+                        // Cart & Orders — phải có .hasAnyAuthority() ngay liền sau
+                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
+                        .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN") // ✅ gắn liền
 
-                // Loyalty
-                .requestMatchers("/api/v1/loyalty/pos/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
-                .requestMatchers("/api/v1/loyalty/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        // Loyalty
+                        .requestMatchers("/api/v1/loyalty/pos/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers("/api/v1/loyalty/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
-                .anyRequest().authenticated()
-            )
+                        .anyRequest().authenticated()
+                )
 
                 .exceptionHandling(customizer ->
-                        customizer.accessDeniedHandler(new CustomAccessDeniedHandler())
+                        customizer.accessDeniedHandler(customAccessDeniedHandler)
                 )
 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

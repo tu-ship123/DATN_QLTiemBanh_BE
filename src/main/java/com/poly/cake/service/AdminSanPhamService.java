@@ -1,10 +1,13 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.SanPhamDto;
 import com.poly.cake.entity.DanhMuc;
 import com.poly.cake.entity.SanPham;
 import com.poly.cake.repository.DanhMucRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,13 +16,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class AdminSanPhamService {
 
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final SanPhamRepository sanPhamRepository;
 
-    @Autowired
-    private DanhMucRepository danhMucRepository;
+    private final DanhMucRepository danhMucRepository;
 
     // 1. DANH SÁCH + LỌC + TÌM KIẾM
     @Transactional(readOnly = true)
@@ -41,7 +43,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
+                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         return mapToResponseDto(sanPham);
     }
@@ -54,7 +56,7 @@ public class AdminSanPhamService {
         DanhMuc danhMuc = danhMucRepository.findById(
                         request.getDanhMucId())
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy danh mục"));
+                        new ResourceNotFoundException("Không tìm thấy danh mục"));
 
         SanPham sanPham = new SanPham();
 
@@ -83,12 +85,12 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
+                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         DanhMuc danhMuc = danhMucRepository.findById(
                         request.getDanhMucId())
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy danh mục"));
+                        new ResourceNotFoundException("Không tìm thấy danh mục"));
 
         sanPham.setDanhMuc(danhMuc);
         sanPham.setTenSanPham(request.getTenSanPham());
@@ -109,7 +111,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
+                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         sanPhamRepository.delete(sanPham);
     }
@@ -120,7 +122,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
+                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         sanPham.setTrangThai("TAM_AN");
 
@@ -135,7 +137,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Không tìm thấy sản phẩm"));
+                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         sanPham.setTrangThai("DANG_BAN");
 

@@ -19,14 +19,10 @@ public class PosOrderController {
     // API Tạo hóa đơn tại quầy + Lấy mã chuyển khoản VietQR + Dữ liệu in bill
     @PostMapping
     public ResponseEntity<?> createPosOrder(@Valid @RequestBody PosOrderDto.Request request, Authentication authentication) {
-        try {
-            // Lấy email của Nhân viên thu ngân đang thực hiện đăng nhập từ Token
-            String emailNhanVien = authentication.getName();
-            
-            PosOrderDto.Response response = posOrderService.createPosOrder(request, emailNhanVien);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        // Lấy email của Nhân viên thu ngân đang thực hiện đăng nhập từ Token
+        String emailNhanVien = authentication.getName();
+
+        PosOrderDto.Response response = posOrderService.createPosOrder(request, emailNhanVien);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
