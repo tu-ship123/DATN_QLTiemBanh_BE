@@ -41,9 +41,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Public endpoints
-                        .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/ws-bakery/**").permitAll()
+                // Public endpoints
+                .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/accessories/**", "/ws-bakery/**").permitAll()
 
                         // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
                         .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
