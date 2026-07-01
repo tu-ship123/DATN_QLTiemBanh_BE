@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.DanhGiaDto;
 import com.poly.cake.service.AdminDanhGiaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,35 +50,23 @@ public class AdminDanhGiaController {
     @PutMapping("/{id}/reply")
     public ResponseEntity<?> reply(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        try {
-            return ResponseEntity.ok(
-                    adminDanhGiaService.reply(id, body.get("phanHoi"))
-            );
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+            @Valid @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(
+                adminDanhGiaService.reply(id, body.get("phanHoi"))
+        );
     }
 
     // ẨN / HIỆN
     @PutMapping("/{id}/toggle")
     public ResponseEntity<?> toggle(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(adminDanhGiaService.toggleBiAn(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(adminDanhGiaService.toggleBiAn(id));
     }
 
     // XÓA
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        try {
-            adminDanhGiaService.delete(id);
-            return ResponseEntity.ok("Đã xóa đánh giá");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        adminDanhGiaService.delete(id);
+        return ResponseEntity.ok("Đã xóa đánh giá");
     }
 }

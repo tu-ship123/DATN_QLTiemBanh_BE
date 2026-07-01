@@ -4,7 +4,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -12,6 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
@@ -62,6 +65,24 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         return xfHeader.split(",")[0];
     }
 
+    /**
+     * Dọn định kỳ các entry IP đã quá hạn (không hoạt động > 2 phút) để tránh
+     * Map phình to vô hạn trong RAM khi server chạy production dài ngày.
+     * Cần bật @EnableScheduling ở class Application chính để hàm này chạy.
+     */
+    @Scheduled(fixedRate = 300000) // chạy mỗi 5 phút
+    public void cleanupOldEntries() {
+        long now = System.currentTimeMillis();
+        int sizeBefore = requestCounts.size();
+        requestCounts.entrySet().removeIf(
+                entry -> now - entry.getValue().startTime > ONE_MINUTE_IN_MILLIS * 2
+        );
+        int removed = sizeBefore - requestCounts.size();
+        if (removed > 0) {
+            log.debug("RateLimitingFilter cleanup: đã xóa {} IP không còn hoạt động, còn lại {} IP.", removed, requestCounts.size());
+        }
+    }
+
     // Lớp chứa thông tin bộ đếm
     private static class RequestInfo {
         long startTime;
@@ -72,6 +93,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             this.count = count;
         }
     }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
@@ -79,7 +101,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         // Cấp "thẻ miễn tử" (bỏ qua Rate Limit) cho các API công khai phục vụ hiển thị giao diện
         return path.startsWith("/api/v1/products")
                 || path.startsWith("/api/v1/categories")
-                || path.startsWith("/api/v1/auth")  
+                || path.startsWith("/api/v1/auth")
                 || path.startsWith("/ws-bakery") // Bỏ qua luôn cho WebSocket (nếu có)
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs");

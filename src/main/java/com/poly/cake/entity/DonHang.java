@@ -32,9 +32,14 @@ public class DonHang {
     @JoinColumn(name = "ma_giam_gia_id")
     private MaGiamGia maGiamGia;
 
+    // Voucher cá nhân (đổi bằng điểm) đã dùng cho đơn hàng này (nếu có)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_khach_hang_id")
+    private VoucherKhachHang voucherKhachHang;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String trangThai = "CHO_XAC_NHAN";
+    private TrangThaiDonHang trangThai = TrangThaiDonHang.CHO_XAC_NHAN;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal tongTien;

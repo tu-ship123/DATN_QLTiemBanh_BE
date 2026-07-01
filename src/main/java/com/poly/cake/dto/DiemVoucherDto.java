@@ -1,5 +1,7 @@
 package com.poly.cake.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -63,6 +65,7 @@ public class DiemVoucherDto {
     @Data
     public static class DoiDiemRequest {
         /** Mã gói voucher: GIAM_50K, GIAM_10_PHAN_TRAM, ... */
+        @NotBlank(message = "Mã gói voucher không được để trống")
         private String maGoiVoucher;
     }
 
@@ -70,7 +73,10 @@ public class DiemVoucherDto {
 
     @Data
     public static class CongDiemPosRequest {
+        @NotBlank(message = "Số điện thoại không được để trống")
         private String soDienThoai;
+
+        @NotNull(message = "Đơn hàng không được để trống")
         private Long donHangId;
     }
 

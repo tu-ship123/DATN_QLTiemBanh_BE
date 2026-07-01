@@ -1,5 +1,7 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.DanhGiaDto;
 import com.poly.cake.entity.DanhGia;
 import com.poly.cake.entity.SanPham;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+
 @RequiredArgsConstructor
 public class AdminDanhGiaService {
 
@@ -67,7 +70,7 @@ public class AdminDanhGiaService {
     public DanhGiaDto.Response reply(Long id, String phanHoi) {
 
         DanhGia dg = danhGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đánh giá #" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá #" + id));
 
         dg.setPhanHoiCuaTiem(phanHoi);
         return toResponse(danhGiaRepository.save(dg));
@@ -78,7 +81,7 @@ public class AdminDanhGiaService {
     public DanhGiaDto.Response toggleBiAn(Long id) {
 
         DanhGia dg = danhGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đánh giá #" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá #" + id));
 
         dg.setBiAn(!Boolean.TRUE.equals(dg.getBiAn()));
         return toResponse(danhGiaRepository.save(dg));
@@ -89,7 +92,7 @@ public class AdminDanhGiaService {
     public void delete(Long id) {
 
         DanhGia dg = danhGiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đánh giá #" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá #" + id));
 
         danhGiaRepository.delete(dg);
     }

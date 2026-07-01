@@ -31,20 +31,12 @@ public class StaffController {
     }
     @PutMapping("/{id}")
     public ResponseEntity<?> updateStaff(@PathVariable Long id, @Valid @RequestBody StaffDto.UpdateRequest request) {
-        try {
-            return ResponseEntity.ok(staffService.updateStaff(id, request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(staffService.updateStaff(id, request));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteStaff(@PathVariable Long id) {
-        try {
-            staffService.deleteStaff(id);
-            return ResponseEntity.ok("Đã khóa tài khoản nhân viên thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        staffService.deleteStaff(id);
+        return ResponseEntity.ok("Đã khóa tài khoản nhân viên thành công!");
     }
 }

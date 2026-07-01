@@ -1,10 +1,12 @@
 package com.poly.cake.service;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 
 @Service
+
 public class RedisTokenService {
 
     private final StringRedisTemplate redisTemplate;

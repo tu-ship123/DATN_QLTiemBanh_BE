@@ -4,12 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+
 /**
  * Bảng lưu lịch sử giao dịch điểm thưởng của từng khách hàng.
  * Mỗi hành động (mua hàng, đánh giá, cộng thủ công) tạo ra 1 bản ghi.
  */
 @Entity
-@Table(name = "diem_thuong")
+@Table(name = "diem_thuong", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"khach_hang_id", "don_hang_id", "loai_giao_dich"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

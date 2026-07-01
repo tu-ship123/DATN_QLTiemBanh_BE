@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
@@ -49,8 +51,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         // Kiểm tra xem Token có bị Blacklist không (Đã đăng xuất)
         if (redisTokenService.isTokenBlacklisted(jwt)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token has been blacklisted. Please login again.");
+            sendUnauthorized(response, "Token has been blacklisted. Please login again.");
             return;
         }
 
@@ -68,13 +69,25 @@ public class JwtFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
+            } else {
+                // Token sai chữ ký hoặc đã hết hạn -> trả 401 rõ ràng ngay tại đây,
+                // không để request đi tiếp như một user ẩn danh (tránh FE nhận nhầm 403).
+                log.debug("Token không hợp lệ hoặc đã hết hạn cho request: {}", path);
+                sendUnauthorized(response, "Token không hợp lệ hoặc đã hết hạn, vui lòng đăng nhập lại!");
+                return;
             }
         } catch (Exception e) {
-            // [TÙY CHỌN BỔ SUNG] Nếu Token hỏng/hết hạn, có thể báo lỗi 401 ngay tại đây
-            // để Frontend dễ dàng nhận biết và xóa Token cũ.
-            System.out.println("Lỗi giải mã JWT Token: " + e.getMessage());
+            log.debug("Lỗi giải mã JWT Token: {}", e.getMessage());
+            sendUnauthorized(response, "Token không hợp lệ, vui lòng đăng nhập lại!");
+            return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"status\": 401, \"error\": \"Unauthorized\", \"message\": \"" + message + "\"}");
     }
 }

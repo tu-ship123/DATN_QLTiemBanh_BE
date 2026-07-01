@@ -1,5 +1,9 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.ForbiddenException;
+
 import com.poly.cake.dto.DanhGiaDto;
 import com.poly.cake.entity.DanhGia;
 import com.poly.cake.entity.DonHang;
@@ -31,34 +35,34 @@ public class DanhGiaService {
     public DanhGiaDto.Response guiDanhGia(Long donHangId, DanhGiaDto.Request request, String emailKhach) {
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));
 
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + donHangId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng #" + donHangId));
 
         // Chỉ chủ đơn mới được đánh giá
         if (!donHang.getKhachHang().getId().equals(khachHang.getId())) {
-            throw new RuntimeException("Bạn không có quyền đánh giá đơn hàng này");
+            throw new ForbiddenException("Bạn không có quyền đánh giá đơn hàng này");
         }
 
         // Chỉ đơn HOAN_THANH mới được đánh giá
         if (!"HOAN_THANH".equals(donHang.getTrangThai())) {
-            throw new RuntimeException("Chỉ có thể đánh giá đơn hàng đã hoàn thành");
+            throw new BusinessException("Chỉ có thể đánh giá đơn hàng đã hoàn thành");
         }
 
         SanPham sanPham = sanPhamRepository.findById(request.getSanPhamId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
 
         // Kiểm tra sản phẩm có trong đơn không
         boolean sanPhamTrongDon = donHang.getChiTietDonHangs().stream()
                 .anyMatch(ct -> ct.getSanPham().getId().equals(sanPham.getId()));
         if (!sanPhamTrongDon) {
-            throw new RuntimeException("Sản phẩm không thuộc đơn hàng này");
+            throw new BusinessException("Sản phẩm không thuộc đơn hàng này");
         }
 
         // Kiểm tra đã đánh giá sản phẩm này trong đơn chưa
         if (danhGiaRepository.existsByKhachHangAndDonHangAndSanPham(khachHang, donHang, sanPham)) {
-            throw new RuntimeException("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
+            throw new BusinessException("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
         }
 
         DanhGia danhGia = DanhGia.builder()
@@ -79,13 +83,13 @@ public class DanhGiaService {
     public DanhGiaDto.DonHangDanhGiaResponse layDanhGiaTheoDon(Long donHangId, String emailKhach) {
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));
 
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
 
         if (!donHang.getKhachHang().getId().equals(khachHang.getId())) {
-            throw new RuntimeException("Không có quyền xem đánh giá này");
+            throw new ForbiddenException("Không có quyền xem đánh giá này");
         }
 
         List<DanhGia> danhSach = danhGiaRepository.findByDonHang(donHang);
@@ -102,7 +106,7 @@ public class DanhGiaService {
 
     public List<DanhGiaDto.Response> layDanhGiaTheoSanPham(Long sanPhamId) {
         SanPham sanPham = sanPhamRepository.findById(sanPhamId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
         return danhGiaRepository.findBySanPhamAndBiAnFalseOrderByNgayTaoDesc(sanPham)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }

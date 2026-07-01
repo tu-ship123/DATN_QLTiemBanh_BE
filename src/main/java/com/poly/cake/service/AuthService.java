@@ -1,5 +1,8 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.AuthDto.*;
 import com.poly.cake.entity.LamMoiToken;
 import com.poly.cake.entity.NguoiDung;
@@ -44,7 +47,7 @@ public class AuthService {
     public void register(RegisterRequest request) {
         if (nguoiDungRepository.findByEmail(request.getEmail()).isPresent()) {
             // [GIỮ NGUYÊN] Trường hợp đăng ký báo lỗi trùng email là hợp lý
-            throw new RuntimeException("Email đã được sử dụng!");
+            throw new BusinessException("Email đã được sử dụng!");
         }
 
         NguoiDung user = NguoiDung.builder()
@@ -69,14 +72,14 @@ public class AuthService {
             );
         } catch (BadCredentialsException e) {
             // [SỬA] Không báo rõ email hay mật khẩu sai, tránh lộ thông tin
-            throw new RuntimeException("Email hoặc mật khẩu không chính xác!");
+            throw new BusinessException("Email hoặc mật khẩu không chính xác!");
         }
 
         NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại"));
 
         if (!user.getTrangThai().equals("HOAT_DONG")) {
-            throw new RuntimeException("Tài khoản đã bị khóa hoặc ngừng hoạt động!");
+            throw new BusinessException("Tài khoản đã bị khóa hoặc ngừng hoạt động!");
         }
 
         // Tạo JWT
@@ -108,11 +111,11 @@ public class AuthService {
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
         LamMoiToken savedToken = lamMoiTokenRepository.findByToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Refresh Token không hợp lệ!"));
+                .orElseThrow(() -> new BusinessException("Refresh Token không hợp lệ!"));
 
         if (savedToken.getNgayHetHan().isBefore(LocalDateTime.now()) || !jwtUtil.isTokenValid(refreshToken)) {
             lamMoiTokenRepository.delete(savedToken);
-            throw new RuntimeException("Refresh Token đã hết hạn, vui lòng đăng nhập lại!");
+            throw new BusinessException("Refresh Token đã hết hạn, vui lòng đăng nhập lại!");
         }
 
         NguoiDung user = savedToken.getNguoiDung();
@@ -134,7 +137,7 @@ public class AuthService {
     @Transactional
     public void logout(String accessToken, String email) {
         NguoiDung user = nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Lỗi xác thực người dùng!"));
+                .orElseThrow(() -> new BusinessException("Lỗi xác thực người dùng!"));
 
         // 1. Xóa Refresh Token trong DB
         lamMoiTokenRepository.deleteByNguoiDung(user);
@@ -180,16 +183,16 @@ public class AuthService {
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
 
         // [SỬA] Kiểm tra hết hạn TRƯỚC khi kiểm tra OTP
         // → Tránh lộ thông tin "OTP đúng nhưng hết hạn" vs "OTP sai"
         if (user.getOtpHetHan() == null || user.getOtpHetHan().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Mã OTP đã hết hạn, vui lòng yêu cầu mã mới!");
+            throw new BusinessException("Mã OTP đã hết hạn, vui lòng yêu cầu mã mới!");
         }
 
         if (user.getMaOtp() == null || !user.getMaOtp().equals(request.getOtp())) {
-            throw new RuntimeException("Mã OTP không chính xác!");
+            throw new BusinessException("Mã OTP không chính xác!");
         }
 
         user.setMatKhau(passwordEncoder.encode(request.getNewPassword()));

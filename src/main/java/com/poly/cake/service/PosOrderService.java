@@ -1,14 +1,19 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.PosOrderDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,32 +25,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PosOrderService {
 
-    @Autowired
-    private DonHangRepository donHangRepository;
-    @Autowired
-    private ChiTietDonHangRepository chiTietDonHangRepository;
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
+    private final DonHangRepository donHangRepository;
+    private final ChiTietDonHangRepository chiTietDonHangRepository;
+    private final NguoiDungRepository nguoiDungRepository;
+    private final SanPhamRepository sanPhamRepository;
 
     @Transactional
     public PosOrderDto.Response createPosOrder(PosOrderDto.Request request, String emailNhanVien) {
         // 1. Xác định nhân viên đang đứng quầy chốt đơn
         NguoiDung nhanVien = nguoiDungRepository.findByEmail(emailNhanVien)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin nhân viên!"));
 
         // 2. Xác định khách hàng (Nếu trống thì dùng email của nhân viên đang xử lý đơn)
         String emailKhach = (request.getEmailKhachHang() == null || request.getEmailKhachHang().isBlank())
                 ? emailNhanVien : request.getEmailKhachHang();
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản khách hàng với email: " + emailKhach));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản khách hàng với email: " + emailKhach));
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Hóa đơn phải có ít nhất 1 sản phẩm!");
+            throw new BusinessException("Hóa đơn phải có ít nhất 1 sản phẩm!");
         }
 
         // 3. Khởi tạo đơn hàng POS
@@ -53,11 +55,13 @@ public class PosOrderService {
         donHang.setKhachHang(khachHang);
         donHang.setNhanVien(nhanVien);
         donHang.setNguonDon("POS");
+
         // Mua tại quầy (POS) không đi qua luồng sản xuất/giao hàng như đơn online:
         // - Trả tiền mặt ngay tại quầy -> coi như hoàn tất giao dịch luôn.
         // - Trả qua QR -> tạm để DA_XAC_NHAN, chờ nhân viên xác nhận đã nhận tiền (API confirm-paid) mới chuyển HOAN_THANH.
         boolean laTienMat = !"VIET_QR".equalsIgnoreCase(request.getPhuongThucThanhToan());
-        donHang.setTrangThai(laTienMat ? "HOAN_THANH" : "DA_XAC_NHAN");
+        donHang.setTrangThai(laTienMat ? TrangThaiDonHang.HOAN_THANH : TrangThaiDonHang.DA_XAC_NHAN);
+
         donHang.setNgayTao(LocalDateTime.now());
         donHang.setGhiChu(request.getGhiChu());
         donHang.setTongTien(BigDecimal.ZERO); // Tạm thời gán bằng 0 để cộng dồn sau
@@ -71,13 +75,13 @@ public class PosOrderService {
 
         for (PosOrderDto.ItemRequest item : request.getItems()) {
             SanPham sanPham = sanPhamRepository.findById(item.getSanPhamId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm mã " + item.getSanPhamId() + " không tồn tại!"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm mã " + item.getSanPhamId() + " không tồn tại!"));
 
-            // [ĐÃ SỬA]: Chống Race Condition bằng Atomic Update trực tiếp dưới DB
+            // Chống Race Condition bằng Atomic Update trực tiếp dưới DB
             int updatedRows = sanPhamRepository.truSoLuongTon(item.getSanPhamId(), item.getSoLuong());
 
             if (updatedRows == 0) {
-                throw new RuntimeException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho lúc này!");
+                throw new BusinessException("Sản phẩm [" + sanPham.getTenSanPham() + "] không đủ số lượng trong kho lúc này!");
             }
 
             // Tính tiền món
@@ -117,7 +121,10 @@ public class PosOrderService {
         PosOrderDto.Response response = new PosOrderDto.Response();
         response.setDonHangId(savedDonHang.getId());
         response.setTongTien(totalAmount);
-        response.setTrangThai(savedDonHang.getTrangThai());
+
+        // Đã sửa: Trích xuất chuỗi String từ Enum để map với DTO
+        response.setTrangThai(savedDonHang.getTrangThai().name());
+
         response.setNguonDon(savedDonHang.getNguonDon());
         response.setVietQrUrl(vietQrUrl);
         response.setReceiptText(receiptText);
@@ -128,41 +135,41 @@ public class PosOrderService {
     @Transactional
     public void confirmPosOrderPaid(Long donHangId, String emailNhanVien) {
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn POS: " + donHangId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn POS: " + donHangId));
 
         if (!"POS".equals(donHang.getNguonDon())) {
-            throw new RuntimeException("Đây không phải hóa đơn bán tại quầy, không thể xác nhận bằng chức năng này!");
+            throw new BusinessException("Đây không phải hóa đơn bán tại quầy, không thể xác nhận bằng chức năng này!");
         }
 
-        if (!"DA_XAC_NHAN".equals(donHang.getTrangThai())) {
-            throw new RuntimeException("Hóa đơn không ở trạng thái chờ thanh toán QR!");
+        if (donHang.getTrangThai() != TrangThaiDonHang.DA_XAC_NHAN) {
+            throw new BusinessException("Hóa đơn không ở trạng thái chờ thanh toán QR!");
         }
 
         // Mua tại quầy: khách đã quét QR + nhận hàng trực tiếp -> hoàn tất luôn, không qua sản xuất/giao hàng
-        donHang.setTrangThai("HOAN_THANH");
+        donHang.setTrangThai(TrangThaiDonHang.HOAN_THANH);
         donHangRepository.save(donHang);
     }
 
     @Transactional
     public void cancelPosOrder(Long donHangId, String emailNhanVien) {
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn POS: " + donHangId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn POS: " + donHangId));
 
         if (!"POS".equals(donHang.getNguonDon())) {
-            throw new RuntimeException("Đây không phải hóa đơn bán tại quầy, không thể hủy bằng chức năng này!");
+            throw new BusinessException("Đây không phải hóa đơn bán tại quầy, không thể hủy bằng chức năng này!");
         }
 
         // Chỉ cho hủy khi đơn còn đang chờ khách quét QR thanh toán (chưa hoàn tất giao dịch)
-        if (!"DA_XAC_NHAN".equals(donHang.getTrangThai())) {
-            throw new RuntimeException("Hóa đơn đã được xử lý tiếp theo, không thể hủy vào lúc này!");
+        if (donHang.getTrangThai() != TrangThaiDonHang.DA_XAC_NHAN) {
+            throw new BusinessException("Hóa đơn đã được xử lý tiếp theo, không thể hủy vào lúc này!");
         }
 
         // Hoàn lại tồn kho đã trừ lúc tạo đơn
         for (ChiTietDonHang chiTiet : donHang.getChiTietDonHangs()) {
-            sanPhamRepository.congSoLuongTon(chiTiet.getSanPham().getId(), chiTiet.getSoLuong());
+            sanPhamRepository.congLaiSoLuongTon(chiTiet.getSanPham().getId(), chiTiet.getSoLuong());
         }
 
-        donHang.setTrangThai("DA_HUY");
+        donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
         donHang.setLyDoHuy("Nhân viên hủy mã QR trước khi khách thanh toán (Hóa đơn quầy)");
         donHangRepository.save(donHang);
     }

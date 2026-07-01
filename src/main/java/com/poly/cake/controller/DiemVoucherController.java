@@ -2,6 +2,7 @@ package com.poly.cake.controller;
 
 import com.poly.cake.dto.DiemVoucherDto;
 import com.poly.cake.service.DiemThuongService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -53,13 +54,9 @@ public class DiemVoucherController {
     /** POST /api/v1/loyalty/voucher/doi-diem – Đổi điểm lấy voucher */
     @PostMapping("/voucher/doi-diem")
     @PreAuthorize("hasRole('KHACH_HANG')")
-    public ResponseEntity<?> doiDiem(@RequestBody DiemVoucherDto.DoiDiemRequest request, Authentication auth) {
-        try {
-            DiemVoucherDto.VoucherResponse result = diemThuongService.doiDiem(auth.getName(), request);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<?> doiDiem(@Valid @RequestBody DiemVoucherDto.DoiDiemRequest request, Authentication auth) {
+        DiemVoucherDto.VoucherResponse result = diemThuongService.doiDiem(auth.getName(), request);
+        return ResponseEntity.ok(result);
     }
 
     // ─── XÁC NHẬN NHẬN HÀNG (ONLINE) → cộng điểm ───────────────────────────
@@ -71,12 +68,8 @@ public class DiemVoucherController {
     @PutMapping("/xac-nhan-nhan-hang/{donHangId}")
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> xacNhanNhanHang(@PathVariable Long donHangId, Authentication auth) {
-        try {
-            diemThuongService.congDiemXacNhanNhanHang(donHangId, auth.getName());
-            return ResponseEntity.ok("Xác nhận thành công! Điểm thưởng đã được cộng vào tài khoản.");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        diemThuongService.congDiemXacNhanNhanHang(donHangId, auth.getName());
+        return ResponseEntity.ok("Xác nhận thành công! Điểm thưởng đã được cộng vào tài khoản.");
     }
 
     // ─── ĐÁNH GIÁ → cộng điểm (gọi nội bộ sau khi lưu DanhGia) ─────────────
@@ -88,12 +81,8 @@ public class DiemVoucherController {
     @PostMapping("/cong-diem-danh-gia/{donHangId}")
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> congDiemDanhGia(@PathVariable Long donHangId, Authentication auth) {
-        try {
-            diemThuongService.congDiemDanhGia(donHangId, auth.getName());
-            return ResponseEntity.ok("Cảm ơn bạn đã đánh giá! +5 điểm đã được cộng.");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        diemThuongService.congDiemDanhGia(donHangId, auth.getName());
+        return ResponseEntity.ok("Cảm ơn bạn đã đánh giá! +5 điểm đã được cộng.");
     }
 
     // ─── POS: cộng điểm offline ──────────────────────────────────────────────
@@ -106,7 +95,7 @@ public class DiemVoucherController {
     @PostMapping("/pos/cong-diem")
     @PreAuthorize("hasAnyRole('NHAN_VIEN', 'ADMIN')")
     public ResponseEntity<DiemVoucherDto.CongDiemPosResponse> congDiemPos(
-            @RequestBody DiemVoucherDto.CongDiemPosRequest request) {
+            @Valid @RequestBody DiemVoucherDto.CongDiemPosRequest request) {
         return ResponseEntity.ok(diemThuongService.congDiemPos(request));
     }
 }

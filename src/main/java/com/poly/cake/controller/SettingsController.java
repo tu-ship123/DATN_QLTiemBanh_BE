@@ -1,10 +1,13 @@
 package com.poly.cake.controller;
 
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.SettingRequest;
 import com.poly.cake.entity.CauHinhHeThong;
 import com.poly.cake.entity.NhatKyHeThong;
 import com.poly.cake.repository.CauHinhHeThongRepository;
 import com.poly.cake.repository.NhatKyHeThongRepository;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,9 +30,9 @@ public class SettingsController {
     }
 
     @PutMapping("/{khoaCauHinh}")
-    public ResponseEntity<?> updateSetting(@PathVariable String khoaCauHinh, @RequestBody SettingRequest request) {
+    public ResponseEntity<?> updateSetting(@PathVariable String khoaCauHinh, @Valid @RequestBody SettingRequest request) {
         CauHinhHeThong config = cauHinhHeThongRepository.findByKhoaCauHinh(khoaCauHinh)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy cấu hình: " + khoaCauHinh));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình: " + khoaCauHinh));
 
         // 1. Lưu lại giá trị cũ trước khi sửa
         String giaTriCu = config.getGiaTri();

@@ -1,8 +1,11 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.ResourceNotFoundException;
+
 import com.poly.cake.dto.StaffDto;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.repository.NguoiDungRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,15 +17,13 @@ import lombok.extern.slf4j.Slf4j; // Import thư viện này
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class StaffService {
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
     // 1. Lấy danh sách nhân viên
     public List<NguoiDung> getAllStaffs() {
         // Giả sử trong DB, quyền nhân viên là "NHAN_VIEN"
@@ -52,7 +53,7 @@ public class StaffService {
 
     public NguoiDung updateStaff(Long id, StaffDto.UpdateRequest request) {
         NguoiDung staff = nguoiDungRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên có ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên có ID: " + id));
 
         // Chỉ cập nhật những trường cho phép
         staff.setHoTen(request.getHoTen());
@@ -68,7 +69,7 @@ public class StaffService {
     // 4. Khóa/Xóa nhân viên (Soft Delete - Đổi trạng thái)
     public void deleteStaff(Long id) {
         NguoiDung existingStaff = nguoiDungRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên!"));
         existingStaff.setTrangThai("BI_KHOA");// 0: Khóa tài khoản
         nguoiDungRepository.save(existingStaff);
     }

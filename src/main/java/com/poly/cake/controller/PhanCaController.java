@@ -44,43 +44,27 @@ public class PhanCaController {
 
     @PostMapping("/ca-lam-viec")
     public ResponseEntity<?> createCaLamViec(@Valid @RequestBody CaLamViecRequest request) {
-        try {
-            return ResponseEntity.ok(phanCaService.createCaLamViec(request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(phanCaService.createCaLamViec(request));
     }
 
     @PutMapping("/ca-lam-viec/{id}")
     public ResponseEntity<?> updateCaLamViec(
             @PathVariable Long id,
             @Valid @RequestBody CaLamViecRequest request) {
-        try {
-            return ResponseEntity.ok(phanCaService.updateCaLamViec(id, request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(phanCaService.updateCaLamViec(id, request));
     }
 
     @DeleteMapping("/ca-lam-viec/{id}")
     public ResponseEntity<?> deleteCaLamViec(@PathVariable Long id) {
-        try {
-            phanCaService.deleteCaLamViec(id);
-            return ResponseEntity.ok("Đã vô hiệu hoá ca làm việc");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        phanCaService.deleteCaLamViec(id);
+        return ResponseEntity.ok("Đã vô hiệu hoá ca làm việc");
     }
 
     // ── Phân Ca ──────────────────────────────────────────────────────────────
 
     @PostMapping("/schedules")
     public ResponseEntity<?> createSchedule(@Valid @RequestBody PhanCaRequest request) {
-        try {
-            return ResponseEntity.ok(phanCaService.createPhanCa(request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(phanCaService.createPhanCa(request));
     }
 
     /**
@@ -97,11 +81,7 @@ public class PhanCaController {
 
     @DeleteMapping("/schedules/{id}")
     public ResponseEntity<?> cancelSchedule(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(phanCaService.huyPhanCa(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(phanCaService.huyPhanCa(id));
     }
 
     // ── Chấm Công ────────────────────────────────────────────────────────────

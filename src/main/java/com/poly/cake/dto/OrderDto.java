@@ -1,5 +1,10 @@
 package com.poly.cake.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
 import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -10,10 +15,19 @@ public class OrderDto {
     // 1. DTO nhận dữ liệu tạo đơn từ FE (Request)
     @Data
     public static class Request {
+        @NotBlank(message = "Địa chỉ giao hàng không được để trống")
         private String diaChiGiaoHang;
+
+        @NotBlank(message = "Số điện thoại không được để trống")
         private String soDienThoai;
+
+        @NotNull(message = "Ngày giao hàng không được để trống")
         private LocalDate ngayGiaoHang;
+
         private String ghiChu;
+
+        @NotEmpty(message = "Đơn hàng phải có ít nhất 1 sản phẩm")
+        @Valid
         private List<OrderItemRequest> items;
 
         /**
@@ -26,8 +40,15 @@ public class OrderDto {
 
     @Data
     public static class OrderItemRequest {
+        @NotNull(message = "Sản phẩm không được để trống")
         private Long sanPhamId;
+
+        @NotNull(message = "Số lượng không được để trống")
+        @Min(value = 1, message = "Số lượng tối thiểu là 1")
         private Integer soLuong;
+
+        @NotNull(message = "Đơn giá không được để trống")
+        @Min(value = 0, message = "Đơn giá không hợp lệ")
         private Double donGia;
     }
 
@@ -49,6 +70,13 @@ public class OrderDto {
         private String lyDoHuy;
         private List<OrderItemResponse> items;
 
+        // Thông tin mã giảm giá đã áp dụng cho đơn này (null nếu không dùng mã)
+        private String maGiamGiaCode;
+        private Double soTienGiam;
+
+        // Tên voucher cá nhân đã áp dụng cho đơn này (null nếu dùng mã giảm giá hoặc không dùng gì)
+        private String tenVoucherKhachHang;
+
         /** T055 – Có thiết kế 3D không? (true/false để FE hiện nút "Xem 3D") */
         private Boolean coThietKe3D;
     }
@@ -64,9 +92,15 @@ public class OrderDto {
     // ── Chỉnh sửa thông tin đơn ──────────────────────────────────────────────
     @Data
     public static class UpdateRequest {
+        @NotBlank(message = "Địa chỉ giao hàng không được để trống")
         private String diaChiGiaoHang;
+
+        @NotBlank(message = "Số điện thoại không được để trống")
         private String soDienThoai;
+
+        @NotNull(message = "Ngày giao hàng không được để trống")
         private LocalDate ngayGiaoHang;
+
         private String ghiChu;
     }
 

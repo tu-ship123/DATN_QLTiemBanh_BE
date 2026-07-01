@@ -1,5 +1,9 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.ForbiddenException;
+
 import lombok.extern.slf4j.Slf4j;
 import com.poly.cake.dto.StaffCheckinRequest;
 import com.poly.cake.dto.ChamCongResponse;
@@ -30,7 +34,7 @@ public class ChamCongService {
     private NguoiDung getNhanVienHienTai() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
     }
 
     /**
@@ -40,21 +44,20 @@ public class ChamCongService {
     public ChamCongResponse checkIn(StaffCheckinRequest request) {
         log.debug("Đang xử lý chấm công cho phanCaId: {}", request.getPhanCaId());
         NguoiDung nhanVien = getNhanVienHienTai();
-        System.out.println("DEBUG: ID nhân viên hiện tại là: " + nhanVien.getId());
-        // ------------------------------
+        log.debug("ID nhân viên hiện tại: {}", nhanVien.getId());
 
         // Tìm phân ca theo id và đảm bảo là ca của nhân viên này
         PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(request.getPhanCaId(), nhanVien.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
+                .orElseThrow(() -> new ForbiddenException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
 
         // Kiểm tra trạng thái phân ca
         if ("DA_HUY".equals(phanCa.getTrangThai())) {
-            throw new RuntimeException("Ca làm việc này đã bị hủy");
+            throw new BusinessException("Ca làm việc này đã bị hủy");
         }
 
         // Kiểm tra đã check-in chưa
         if (chamCongRepository.existsByPhanCa(phanCa)) {
-            throw new RuntimeException("Bạn đã check-in ca này rồi");
+            throw new BusinessException("Bạn đã check-in ca này rồi");
         }
 
         LocalDateTime gioVaoThucTe = LocalDateTime.now();
@@ -96,13 +99,13 @@ public class ChamCongService {
         NguoiDung nhanVien = getNhanVienHienTai();
 
         PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(phanCaId, nhanVien.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
+                .orElseThrow(() -> new ForbiddenException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
 
         ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
-                .orElseThrow(() -> new RuntimeException("Bạn chưa check-in ca này"));
+                .orElseThrow(() -> new BusinessException("Bạn chưa check-in ca này"));
 
         if (chamCong.getGioRa() != null) {
-            throw new RuntimeException("Bạn đã check-out ca này rồi");
+            throw new BusinessException("Bạn đã check-out ca này rồi");
         }
 
         LocalDateTime gioRaThucTe = LocalDateTime.now();

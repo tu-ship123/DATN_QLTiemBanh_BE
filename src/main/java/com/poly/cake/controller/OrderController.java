@@ -28,13 +28,9 @@ public class OrderController {
     @PostMapping
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> checkout(@Valid @RequestBody OrderDto.Request request, Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            OrderDto.Response response = orderService.createOrder(request, email);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getLocalizedMessage());
-        }
+        String email = authentication.getName();
+        OrderDto.Response response = orderService.createOrder(request, email);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // T055 – VALIDATE THIẾT KẾ 3D TRƯỚC KHI ĐẶT HÀNG
@@ -44,17 +40,13 @@ public class OrderController {
     @Operation(summary = "Validate thiết kế bánh 3D",
             description = "FE gọi tại bước chọn khung để kiểm tra JSON hợp lệ chưa (kích thước chiều cao + đường kính)")
     public ResponseEntity<?> validateCakeDesign(@Valid @RequestBody CakeDesignDto.Request request) {
-        try {
-            CakeDesignDto.KichThuoc kt = request.getKhung().getKich_thuoc();
-            return ResponseEntity.ok(Map.of(
-                    "hopLe",   true,
-                    "tomTat",  String.format("Đường kính %.0f cm × Chiều cao %.0f cm",
-                                             kt.getDuong_kinh_cm(), kt.getChieu_cao_cm()),
-                    "message", "Kích thước hợp lệ! Bạn có thể tiếp tục đặt hàng."
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getLocalizedMessage());
-        }
+        CakeDesignDto.KichThuoc kt = request.getKhung().getKich_thuoc();
+        return ResponseEntity.ok(Map.of(
+                "hopLe",   true,
+                "tomTat",  String.format("Đường kính %.0f cm × Chiều cao %.0f cm",
+                        kt.getDuong_kinh_cm(), kt.getChieu_cao_cm()),
+                "message", "Kích thước hợp lệ! Bạn có thể tiếp tục đặt hàng."
+        ));
     }
 
     // 2. API LẤY LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH ĐANG LOG IN - Chỉ dành cho Khách hàng
@@ -68,12 +60,14 @@ public class OrderController {
     // 3. API XEM CHI TIẾT ĐƠN HÀNG THEO ID
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('KHACH_HANG', 'ADMIN', 'NHAN_VIEN')")
-    public ResponseEntity<?> getOrderById(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(orderService.getOrderById(id));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
+    public ResponseEntity<?> getOrderById(@PathVariable Long id, Authentication authentication) {
+        // Lấy email người dùng từ token
+        String email = authentication.getName();
+
+        // Lấy quyền (role) đầu tiên của người dùng
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
+
+        return ResponseEntity.ok(orderService.getOrderById(id, email, role));
     }
 
     // 4. API LẤY TOÀN BỘ ĐƠN HÀNG - Chỉ ADMIN hoặc NHAN_VIEN mới được xem
@@ -87,26 +81,18 @@ public class OrderController {
     @PutMapping("/{id}/process")
     @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
     public ResponseEntity<?> processOrder(@PathVariable Long id, @Valid @RequestBody OrderProcessDto request, Authentication authentication) {
-        try {
-            String emailNhanVien = authentication.getName();
-            OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
-            return ResponseEntity.ok(updatedOrder);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        String emailNhanVien = authentication.getName();
+        OrderDto.Response updatedOrder = orderService.processOrder(id, request, emailNhanVien);
+        return ResponseEntity.ok(updatedOrder);
     }
 
     // 6. API USER TỰ HỦY ĐƠN HÀNG - Chỉ Khách hàng mới được tự hủy đơn của mình
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> cancelOrder(@PathVariable Long id, Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            orderService.cancelOrder(id, email);
-            return ResponseEntity.ok("Hủy đơn hàng thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        String email = authentication.getName();
+        orderService.cancelOrder(id, email);
+        return ResponseEntity.ok("Hủy đơn hàng thành công!");
     }
 
     // 7. API LẤY DỮ LIỆU THIẾT KẾ 3D

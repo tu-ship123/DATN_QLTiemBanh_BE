@@ -1,11 +1,16 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.ForbiddenException;
+
 import com.poly.cake.dto.KhachHangDto;
 import com.poly.cake.entity.DiemThuong;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.repository.DiemThuongRepository;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,16 +22,14 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class AdminKhachHangService {
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
-    @Autowired
-    private DiemThuongRepository diemThuongRepository;
+    private final DiemThuongRepository diemThuongRepository;
 
-    @Autowired
-    private DonHangRepository donHangRepository;
+    private final DonHangRepository donHangRepository;
 
     // GET ALL khách hàng
     public List<KhachHangDto.Response> getAll() {
@@ -74,7 +77,7 @@ public class AdminKhachHangService {
         if (req.getDiemThayDoi() < 0) {
             Integer tongDiem = diemThuongRepository.tinhTongDiem(kh);
             if (tongDiem + req.getDiemThayDoi() < 0) {
-                throw new RuntimeException("Khách không đủ điểm để trừ. Điểm hiện có: " + tongDiem);
+                throw new BusinessException("Khách không đủ điểm để trừ. Điểm hiện có: " + tongDiem);
             }
         }
 
@@ -99,9 +102,9 @@ public class AdminKhachHangService {
 
     private NguoiDung findKhachHang(Long id) {
         NguoiDung kh = nguoiDungRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng với id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với id=" + id));
         if (!"KHACH_HANG".equals(kh.getQuyen())) {
-            throw new RuntimeException("Người dùng này không phải khách hàng");
+            throw new ForbiddenException("Người dùng này không phải khách hàng");
         }
         return kh;
     }

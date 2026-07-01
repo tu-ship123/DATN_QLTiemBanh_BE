@@ -2,6 +2,7 @@ package com.poly.cake.service;
 
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +16,12 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class DashboardService {
 
-    @Autowired
-    private DonHangRepository donHangRepository;
+    private final DonHangRepository donHangRepository;
 
-    @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
     // 1. API LẤY KPI DASHBOARD
     public Map<String, Object> getDashboardKpi() {

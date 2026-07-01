@@ -23,6 +23,17 @@ public class GioHang {
     @JoinColumn(name = "khach_hang_id", nullable = false, unique = true)
     private NguoiDung khachHang;
 
+    // Mã giảm giá khách đã áp dụng ở giỏ hàng, sẽ được mang qua khi checkout
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ma_giam_gia_id")
+    private MaGiamGia maGiamGia;
+
+    // Voucher cá nhân (đổi bằng điểm) khách đã áp dụng ở giỏ hàng.
+    // Chỉ 1 trong 2 (maGiamGia HOẶC voucherKhachHang) được áp dụng cùng lúc.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_khach_hang_id")
+    private VoucherKhachHang voucherKhachHang;
+
     @Column(nullable = false)
     private LocalDateTime ngayTao;
 

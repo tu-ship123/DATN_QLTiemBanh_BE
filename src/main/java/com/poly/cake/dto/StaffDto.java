@@ -3,6 +3,7 @@ package com.poly.cake.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 public class StaffDto {
@@ -10,6 +11,7 @@ public class StaffDto {
     @Data
     public static class CreateRequest {
         @NotBlank(message = "Họ tên không được để trống")
+        @Size(max = 150, message = "Họ tên tối đa 150 ký tự")
         private String hoTen;
 
         @NotBlank(message = "Email không được để trống")
@@ -25,6 +27,7 @@ public class StaffDto {
     @Data
     public static class UpdateRequest {
         @NotBlank(message = "Họ tên không được để trống")
+        @Size(max = 150, message = "Họ tên tối đa 150 ký tự")
         private String hoTen;
 
         @Pattern(regexp = "^(0|\\+84)[0-9]{8,10}$", message = "Số điện thoại không hợp lệ")
