@@ -272,3 +272,15 @@ GO
 
 ALTER TABLE [nhat_ky_he_thong] ADD FOREIGN KEY ([nguoi_dung_id]) REFERENCES [nguoi_dung] ([id])
 GO
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MIGRATION: Bổ sung cột phục vụ tính năng "Thiết kế bánh 3D" (CakeBuilder3D)
+-- Bánh khách tự thiết kế (size + số tầng + phụ kiện) có giá khác với giá gốc
+-- của sản phẩm đại diện, và JSON thiết kế cần được giữ lại từ giỏ hàng sang
+-- đơn hàng để nhân viên bếp xem lại đúng thiết kế khách đã chọn.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE [chi_tiet_gio_hang] ADD [don_gia_tuy_chinh] decimal(12,2) NULL
+GO
+
+ALTER TABLE [chi_tiet_don_hang] ADD [thiet_ke_banh_json] text NULL
+GO

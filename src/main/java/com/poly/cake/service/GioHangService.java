@@ -41,6 +41,8 @@ public class GioHangService {
 
     private final VoucherKhachHangRepository voucherKhachHangRepository;
 
+    private final CakeDesignPricingService cakeDesignPricingService;
+
     // ─── LẤY GIỎ HÀNG CỦA USER (tạo mới nếu chưa có) ──────────────────────
     @Transactional
     public GioHangDto.GioHangResponse layGioHang(String email) {
@@ -62,7 +64,18 @@ public class GioHangService {
             throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" hiện không còn bán.");
         }
 
-        if (sanPham.getSoLuongTon() <= 0) {
+        // Bánh 3D tùy chỉnh (có thietKeBanhJson) là hàng làm theo yêu cầu, không áp dụng
+        // kiểm tra tồn kho như sản phẩm bán sẵn thông thường. Giá của nó KHÔNG lấy trực
+        // tiếp từ request.getDonGiaTuyChinh() (client gửi lên, có thể bị sửa qua DevTools),
+        // mà BE tự tính lại từ chính JSON thiết kế (size + số tầng + phụ kiện tra giá
+        // thật trong DB) - xem CakeDesignPricingService.
+        boolean laBanhTuyChinh = request.getThietKeBanhJson() != null
+                && !request.getThietKeBanhJson().isBlank();
+        BigDecimal giaBanhTuyChinh = laBanhTuyChinh
+                ? cakeDesignPricingService.tinhGiaChuan(request.getThietKeBanhJson())
+                : null;
+
+        if (!laBanhTuyChinh && sanPham.getSoLuongTon() <= 0) {
             throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" đã hết hàng.");
         }
 
@@ -76,13 +89,16 @@ public class GioHangService {
             // Tăng số lượng nếu đã có
             ChiTietGioHang chiTiet = chiTietTonTai.get();
             int soLuongMoi = chiTiet.getSoLuong() + request.getSoLuong();
-            if (soLuongMoi > sanPham.getSoLuongTon()) {
+            if (!laBanhTuyChinh && soLuongMoi > sanPham.getSoLuongTon()) {
                 throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             chiTiet.setSoLuong(soLuongMoi);
+            if (laBanhTuyChinh) {
+                chiTiet.setDonGiaTuyChinh(giaBanhTuyChinh);
+            }
         } else {
             // Thêm mới
-            if (request.getSoLuong() > sanPham.getSoLuongTon()) {
+            if (!laBanhTuyChinh && request.getSoLuong() > sanPham.getSoLuongTon()) {
                 throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             ChiTietGioHang chiTietMoi = ChiTietGioHang.builder()
@@ -90,6 +106,7 @@ public class GioHangService {
                     .sanPham(sanPham)
                     .soLuong(request.getSoLuong())
                     .thietKeBanhJson(request.getThietKeBanhJson())
+                    .donGiaTuyChinh(giaBanhTuyChinh)
                     .build();
             gioHang.getChiTietGioHangs().add(chiTietMoi);
         }
@@ -113,7 +130,8 @@ public class GioHangService {
             // Xóa nếu số lượng <= 0
             gioHang.getChiTietGioHangs().remove(chiTiet);
         } else {
-            if (request.getSoLuong() > chiTiet.getSanPham().getSoLuongTon()) {
+            boolean laBanhTuyChinh = chiTiet.getDonGiaTuyChinh() != null;
+            if (!laBanhTuyChinh && request.getSoLuong() > chiTiet.getSanPham().getSoLuongTon()) {
                 throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + chiTiet.getSanPham().getSoLuongTon());
             }
             chiTiet.setSoLuong(request.getSoLuong());
@@ -258,8 +276,13 @@ public class GioHangService {
     // ─── HELPER: Tính tổng tiền hàng (chưa gồm ship, chưa trừ giảm giá) ────
     private BigDecimal tinhTongTienHang(GioHang gioHang) {
         return gioHang.getChiTietGioHangs().stream()
-                .map(ct -> ct.getSanPham().getDonGia().multiply(BigDecimal.valueOf(ct.getSoLuong())))
+                .map(ct -> donGiaHieuLuc(ct).multiply(BigDecimal.valueOf(ct.getSoLuong())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // ─── HELPER: Đơn giá thực tế của 1 item trong giỏ (ưu tiên giá bánh 3D tùy chỉnh) ─
+    private BigDecimal donGiaHieuLuc(ChiTietGioHang ct) {
+        return ct.getDonGiaTuyChinh() != null ? ct.getDonGiaTuyChinh() : ct.getSanPham().getDonGia();
     }
 
     // ─── HELPER: Kiểm tra voucher cá nhân còn hợp lệ để áp dụng không ───────
@@ -387,9 +410,9 @@ public class GioHangService {
         item.setAnhSanPham(ct.getSanPham().getAnhSanPham());
         item.setTenDanhMuc(ct.getSanPham().getDanhMuc() != null
                 ? ct.getSanPham().getDanhMuc().getTenDanhMuc() : null);
-        item.setDonGia(ct.getSanPham().getDonGia());
+        item.setDonGia(donGiaHieuLuc(ct));
         item.setSoLuong(ct.getSoLuong());
-        item.setThanhTien(ct.getSanPham().getDonGia().multiply(BigDecimal.valueOf(ct.getSoLuong())));
+        item.setThanhTien(donGiaHieuLuc(ct).multiply(BigDecimal.valueOf(ct.getSoLuong())));
         item.setThietKeBanhJson(ct.getThietKeBanhJson());
         item.setNgayTao(ct.getNgayTao());
         return item;

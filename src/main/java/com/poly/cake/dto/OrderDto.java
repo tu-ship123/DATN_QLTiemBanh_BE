@@ -50,6 +50,13 @@ public class OrderDto {
         @NotNull(message = "Đơn giá không được để trống")
         @Min(value = 0, message = "Đơn giá không hợp lệ")
         private Double donGia;
+
+        /**
+         * Snapshot JSON thiết kế bánh 3D của item này (copy từ giỏ hàng sang lúc
+         * checkout), để nhân viên bếp xem lại qua GET /api/v1/orders/{id}/design.
+         * Optional - null nếu là sản phẩm bán sẵn thông thường.
+         */
+        private String thietKeBanhJson;
     }
 
     // 2. DTO trả dữ liệu về FE (Response)
@@ -87,6 +94,7 @@ public class OrderDto {
         private String tenSanPham;
         private Integer soLuong;
         private Double giaBan;
+        private String thietKeBanhJson;
     }
 
     // ── Chỉnh sửa thông tin đơn ──────────────────────────────────────────────

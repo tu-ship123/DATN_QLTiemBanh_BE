@@ -31,6 +31,14 @@ public class ChiTietDonHang {
     @Column(precision = 12, scale = 2)
     private BigDecimal donGiaTaiThoiDiem;
 
+    /**
+     * Snapshot JSON thiết kế bánh 3D của riêng item này tại thời điểm đặt hàng
+     * (copy nguyên văn từ ChiTietGioHang.thietKeBanhJson lúc checkout), để không bị
+     * mất dữ liệu khi giỏ hàng đã bị xóa sau khi tạo đơn thành công.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String thietKeBanhJson;
+
     private LocalDateTime ngayTao;
 
     @PrePersist

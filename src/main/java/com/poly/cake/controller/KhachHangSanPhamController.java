@@ -35,6 +35,17 @@ public class KhachHangSanPhamController {
     }
 
     /**
+     * API công khai - lấy (hoặc tự tạo nếu chưa có) sản phẩm đại diện dùng chung cho
+     * mọi chiếc bánh khách tự thiết kế ở CakeBuilder3D. FE gọi ngay trước khi thêm
+     * bánh 3D vào giỏ hàng (xem Design.vue -> datBanhNay()).
+     * GET /api/v1/products/custom-cake-marker
+     */
+    @GetMapping("/custom-cake-marker")
+    public ResponseEntity<SanPhamDto.Response> getCustomCakeMarker() {
+        return ResponseEntity.ok(adminSanPhamService.getOrCreateCustomCakeMarker());
+    }
+
+    /**
      * API công khai - xem chi tiết 1 sản phẩm
      * GET /api/v1/products/{id}
      */

@@ -140,6 +140,18 @@ public class OrderService {
             } catch (Exception e) {
                 donHang.setThietKeBanhJson(request.getCakeDesignJson());
             }
+        } else {
+            // Không có cakeDesignJson theo schema cũ (khung/tang/trang_tri) - đây là luồng
+            // thực tế của CakeBuilder3D (Design.vue): mỗi item trong giỏ tự mang theo JSON
+            // thiết kế thô của riêng nó (shape/size/tierCount/frostingColor/accessories...).
+            // Lấy item đầu tiên có thiết kế để lưu ở cấp đơn hàng, cho trang bếp
+            // (BakeryOrders.vue -> GET /api/v1/orders/{id}/design) vẫn xem được bình
+            // thường - CakeDesignViewer3D.vue đã tự nhận diện đúng định dạng thô này.
+            request.getItems().stream()
+                    .map(OrderDto.OrderItemRequest::getThietKeBanhJson)
+                    .filter(json -> json != null && !json.isBlank())
+                    .findFirst()
+                    .ifPresent(donHang::setThietKeBanhJson);
         }
 
         DonHang savedDonHang = donHangRepository.save(donHang);
@@ -152,6 +164,7 @@ public class OrderService {
             chiTiet.setSanPham(sanPham);
             chiTiet.setSoLuong(itemDto.getSoLuong());
             chiTiet.setDonGiaTaiThoiDiem(BigDecimal.valueOf(itemDto.getDonGia()));
+            chiTiet.setThietKeBanhJson(itemDto.getThietKeBanhJson());
             return chiTiet;
         }).collect(Collectors.toList());
 
@@ -407,6 +420,7 @@ public class OrderService {
                         itemDto.setSoLuong(item.getSoLuong());
                         itemDto.setGiaBan(item.getDonGiaTaiThoiDiem() != null
                                 ? item.getDonGiaTaiThoiDiem().doubleValue() : 0.0);
+                        itemDto.setThietKeBanhJson(item.getThietKeBanhJson());
                         return itemDto;
                     }).collect(Collectors.toList());
             dto.setItems(itemDtos);

@@ -1,5 +1,6 @@
 package com.poly.cake.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,6 +22,15 @@ public class GioHangDto {
         private Integer soLuong;
 
         private String thietKeBanhJson; // Dữ liệu thiết kế 3D (nếu có)
+
+        /**
+         * Giá bánh 3D tùy chỉnh do FE (CakeBuilder3D) tính sẵn, gửi kèm CHỈ ĐỂ THAM KHẢO.
+         * BE KHÔNG dùng số này để lưu giá - luôn tự tính lại giá thật từ thietKeBanhJson
+         * (size + số tầng + phụ kiện, tra giá thật trong DB) để tránh bị sửa giá qua
+         * DevTools/Postman. Xem CakeDesignPricingService.tinhGiaChuan().
+         */
+        @DecimalMin(value = "0.0", message = "Đơn giá tùy chỉnh không hợp lệ")
+        private java.math.BigDecimal donGiaTuyChinh;
     }
 
     // ─── REQUEST: Cập nhật số lượng ──────────────────────────────────────────

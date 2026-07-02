@@ -23,6 +23,38 @@ public class AdminSanPhamService {
 
     private final DanhMucRepository danhMucRepository;
 
+    /**
+     * Tên sản phẩm "đại diện" dùng chung cho MỌI chiếc bánh khách tự thiết kế ở
+     * CakeBuilder3D (xem Design.vue -> datBanhNay()). Bản thân sản phẩm này không có
+     * giá cố định thật sự - giá thật của từng chiếc bánh được tính riêng ở FE theo
+     * size/số tầng/phụ kiện và lưu vào ChiTietGioHang.donGiaTuyChinh khi thêm vào giỏ.
+     */
+    private static final String TEN_SAN_PHAM_CUSTOM_CAKE = "Bánh thiết kế 3D tùy chỉnh";
+
+    /**
+     * Lấy sản phẩm đại diện cho bánh 3D tùy chỉnh, tự động tạo nếu chưa tồn tại
+     * (khởi tạo project lần đầu chưa có sẵn trong dữ liệu mẫu).
+     * GET /api/v1/products/custom-cake-marker (KhachHangSanPhamController) gọi hàm này.
+     */
+    @Transactional
+    public SanPhamDto.Response getOrCreateCustomCakeMarker() {
+        SanPham sanPham = sanPhamRepository.findByTenSanPham(TEN_SAN_PHAM_CUSTOM_CAKE)
+                .orElseGet(() -> {
+                    SanPham moi = new SanPham();
+                    moi.setTenSanPham(TEN_SAN_PHAM_CUSTOM_CAKE);
+                    // Giá hiển thị mặc định (chỉ mang tính tham khảo) - giá thật luôn
+                    // được ghi đè bởi donGiaTuyChinh của từng chi tiết giỏ hàng.
+                    moi.setDonGia(java.math.BigDecimal.valueOf(420000));
+                    // Số lượng lớn tượng trưng cho "làm theo yêu cầu, không giới hạn tồn kho"
+                    moi.setSoLuongTon(999999);
+                    moi.setTrangThai("DANG_BAN");
+                    moi.setMoTa("Sản phẩm đại diện dùng chung cho mọi chiếc bánh khách tự thiết kế "
+                            + "ở công cụ 3D. Giá thật của từng đơn được tính riêng theo lựa chọn của khách.");
+                    return sanPhamRepository.save(moi);
+                });
+        return mapToResponseDto(sanPham);
+    }
+
     // 1. DANH SÁCH + LỌC + TÌM KIẾM
     @Transactional(readOnly = true)
     public List<SanPhamDto.Response> getFilteredProducts(

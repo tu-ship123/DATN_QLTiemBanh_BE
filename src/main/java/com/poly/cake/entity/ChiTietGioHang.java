@@ -2,6 +2,7 @@ package com.poly.cake.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,6 +30,14 @@ public class ChiTietGioHang {
 
     @Column(columnDefinition = "TEXT")
     private String thietKeBanhJson;
+
+    /**
+     * Giá đã tính riêng cho item này khi có thiết kế 3D tùy chỉnh (size + số tầng +
+     * phụ kiện trang trí khách tự chọn ở CakeBuilder3D). Khi null, giá dùng
+     * sanPham.donGia như bình thường (sản phẩm bán sẵn, không tùy chỉnh).
+     */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal donGiaTuyChinh;
 
     @Column(nullable = false)
     private LocalDateTime ngayTao;

@@ -33,6 +33,9 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
     // Kiểm tra trùng tên
     boolean existsByTenSanPham(String tenSanPham);
 
+    // Tìm đúng 1 sản phẩm theo tên chính xác (dùng để lấy sản phẩm đại diện bánh 3D tùy chỉnh)
+    java.util.Optional<SanPham> findByTenSanPham(String tenSanPham);
+
     @Query("SELECT sp FROM SanPham sp WHERE " +
            "(:keyword IS NULL OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
            "(:trangThai IS NULL OR sp.trangThai = :trangThai) AND " +
