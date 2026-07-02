@@ -18,10 +18,10 @@ public class MaGiamGia {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, unique = true, columnDefinition = "NVARCHAR(50)")
     private String maCode;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String loaiGiamGia; // PHAN_TRAM, SO_TIEN_CO_DINH
 
     @Column(nullable = false, precision = 12, scale = 2)

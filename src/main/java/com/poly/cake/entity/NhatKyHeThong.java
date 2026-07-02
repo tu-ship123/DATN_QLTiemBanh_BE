@@ -22,18 +22,18 @@ public class NhatKyHeThong {
     @JoinColumn(name = "nguoi_dung_id")
     private NguoiDung nguoiDung; // Có thể null nếu hệ thống tự chạy
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(100)")
     private String hanhDong;
 
-    @Column(length = 100)
+    @Column(columnDefinition = "NVARCHAR(100)")
     private String tenBang;
 
     private Long banGhiId;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String giaTriCu;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String giaTriMoi;
 
     // [ĐÃ SỬA]: Đổi sang nullable = true để tránh lỗi SQL Server khi bảng cũ đã có dữ liệu

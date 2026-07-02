@@ -17,28 +17,28 @@ public class NguoiDung {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(150)")
     private String hoTen;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(nullable = false, unique = true, columnDefinition = "NVARCHAR(150)")
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String matKhau;
 
-    @Column(length = 20)
+    @Column(columnDefinition = "NVARCHAR(20)")
     private String soDienThoai;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "NVARCHAR(500)")
     private String anhDaiDien;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String quyen = "KHACH_HANG"; // ADMIN, NHAN_VIEN, KHACH_HANG
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "HOAT_DONG"; // HOAT_DONG, BI_KHOA, NGUNG_HOAT_DONG
 
-    @Column(length = 10)
+    @Column(columnDefinition = "NVARCHAR(10)")
     private String maOtp;
 
     private LocalDateTime otpHetHan;

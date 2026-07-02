@@ -38,6 +38,7 @@ public class PhuKienTrangTriService {
         dto.setDonGia(entity.getDonGia());
         dto.setSoLuongTon(entity.getSoLuongTon());
         dto.setAnhPhuKien(entity.getAnhPhuKien());
+        dto.setModel3dUrl(entity.getModel3dUrl());
         return dto;
     }
 }

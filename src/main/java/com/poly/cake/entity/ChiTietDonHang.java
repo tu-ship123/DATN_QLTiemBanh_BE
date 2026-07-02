@@ -36,7 +36,7 @@ public class ChiTietDonHang {
      * (copy nguyên văn từ ChiTietGioHang.thietKeBanhJson lúc checkout), để không bị
      * mất dữ liệu khi giỏ hàng đã bị xóa sau khi tạo đơn thành công.
      */
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String thietKeBanhJson;
 
     private LocalDateTime ngayTao;

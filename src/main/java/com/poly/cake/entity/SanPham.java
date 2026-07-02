@@ -30,14 +30,23 @@ public class SanPham {
 
     private Integer soLuongTon = 0;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "NVARCHAR(500)")
     private String anhSanPham;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "DANG_BAN"; // DANG_BAN, TAM_AN
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String moTa;
+
+    // Đánh dấu sản phẩm "nội bộ" (VD: sản phẩm đại diện dùng chung cho bánh 3D tùy
+    // chỉnh) - KHÔNG bao giờ được hiện ra ở bất kỳ danh sách sản phẩm nào (trang khách,
+    // trang admin...), dù trạng thái là DANG_BAN. Dùng cột riêng thay vì so khớp tên
+    // sản phẩm, vì so tên rất dễ bị lệch (thừa khoảng trắng, tạo trùng bản ghi, sai
+    // encoding dấu tiếng Việt...) khiến sản phẩm nội bộ lọt ra ngoài công khai.
+    @Column(name = "la_noi_bo", nullable = false)
+    @Builder.Default
+    private Boolean laNoiBo = false;
 
     private LocalDateTime ngayTao;
 

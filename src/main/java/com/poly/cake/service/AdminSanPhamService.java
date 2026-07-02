@@ -35,24 +35,53 @@ public class AdminSanPhamService {
      * Lấy sản phẩm đại diện cho bánh 3D tùy chỉnh, tự động tạo nếu chưa tồn tại
      * (khởi tạo project lần đầu chưa có sẵn trong dữ liệu mẫu).
      * GET /api/v1/products/custom-cake-marker (KhachHangSanPhamController) gọi hàm này.
+     *
+     * LƯU Ý: sản phẩm này bị loại khỏi mọi danh sách sản phẩm (xem
+     * SanPhamRepository.filterProducts) nên sẽ KHÔNG hiện ra ở trang khách xem hàng
+     * hay trang quản lý admin - nó chỉ tồn tại trong DB để ChiTietGioHang/ChiTietDonHang
+     * có 1 sanPhamId hợp lệ để trỏ vào, giá thật luôn lấy từ donGiaTuyChinh.
      */
     @Transactional
     public SanPhamDto.Response getOrCreateCustomCakeMarker() {
-        SanPham sanPham = sanPhamRepository.findByTenSanPham(TEN_SAN_PHAM_CUSTOM_CAKE)
-                .orElseGet(() -> {
-                    SanPham moi = new SanPham();
-                    moi.setTenSanPham(TEN_SAN_PHAM_CUSTOM_CAKE);
-                    // Giá hiển thị mặc định (chỉ mang tính tham khảo) - giá thật luôn
-                    // được ghi đè bởi donGiaTuyChinh của từng chi tiết giỏ hàng.
-                    moi.setDonGia(java.math.BigDecimal.valueOf(420000));
-                    // Số lượng lớn tượng trưng cho "làm theo yêu cầu, không giới hạn tồn kho"
-                    moi.setSoLuongTon(999999);
-                    moi.setTrangThai("DANG_BAN");
-                    moi.setMoTa("Sản phẩm đại diện dùng chung cho mọi chiếc bánh khách tự thiết kế "
-                            + "ở công cụ 3D. Giá thật của từng đơn được tính riêng theo lựa chọn của khách.");
-                    return sanPhamRepository.save(moi);
-                });
+        // "Tự chữa lành" dữ liệu cũ: gom TẤT CẢ bản ghi có thể là marker (đã có cờ
+        // laNoiBo=true, HOẶC tên khớp dù lệch khoảng trắng/hoa-thường do lỗi cũ từng
+        // tạo trùng nhiều bản) - luôn dùng bản ghi CŨ NHẤT làm chuẩn, các bản dư thừa
+        // sẽ được đánh dấu laNoiBo=true để không bao giờ lọt ra ngoài danh sách nữa,
+        // dù tên của chúng có đúng tuyệt đối 100% với TEN_SAN_PHAM_CUSTOM_CAKE hay không.
+        List<SanPham> ungVien = sanPhamRepository.timCacBanGhiCoTheLaCustomCakeMarker(TEN_SAN_PHAM_CUSTOM_CAKE);
+
+        SanPham sanPham;
+        if (!ungVien.isEmpty()) {
+            sanPham = ungVien.get(0); // cũ nhất
+            boolean coThayDoi = false;
+            for (SanPham banGhi : ungVien) {
+                if (!Boolean.TRUE.equals(banGhi.getLaNoiBo())) {
+                    banGhi.setLaNoiBo(true);
+                    coThayDoi = true;
+                }
+            }
+            if (coThayDoi) {
+                sanPhamRepository.saveAll(ungVien);
+            }
+        } else {
+            sanPham = taoMoiCustomCakeMarker();
+        }
         return mapToResponseDto(sanPham);
+    }
+
+    private SanPham taoMoiCustomCakeMarker() {
+        SanPham moi = new SanPham();
+        moi.setTenSanPham(TEN_SAN_PHAM_CUSTOM_CAKE);
+        // Giá hiển thị mặc định (chỉ mang tính tham khảo) - giá thật luôn
+        // được ghi đè bởi donGiaTuyChinh của từng chi tiết giỏ hàng.
+        moi.setDonGia(java.math.BigDecimal.valueOf(420000));
+        // Số lượng lớn tượng trưng cho "làm theo yêu cầu, không giới hạn tồn kho"
+        moi.setSoLuongTon(999999);
+        moi.setTrangThai("DANG_BAN");
+        moi.setLaNoiBo(true); // <-- cờ QUYẾT ĐỊNH việc ẩn khỏi mọi danh sách sản phẩm
+        moi.setMoTa("Sản phẩm đại diện dùng chung cho mọi chiếc bánh khách tự thiết kế "
+                + "ở công cụ 3D. Giá thật của từng đơn được tính riêng theo lựa chọn của khách.");
+        return sanPhamRepository.save(moi);
     }
 
     // 1. DANH SÁCH + LỌC + TÌM KIẾM

@@ -18,7 +18,7 @@ public class PhuKienTrangTri {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(150)")
     private String tenPhuKien;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -26,8 +26,14 @@ public class PhuKienTrangTri {
 
     private Integer soLuongTon = 0;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "NVARCHAR(500)")
     private String anhPhuKien;
+
+    // Đường dẫn/URL file model 3D (.glb) của phụ kiện này. NULL = FE chưa có model thật,
+    // sẽ tự rơi về hình mẫu dựng sẵn (procedural) hoặc đoán theo tên (cách cũ) - xem
+    // CakeBuilder3D.vue -> buildMarkerMesh().
+    @Column(columnDefinition = "NVARCHAR(500)")
+    private String model3dUrl;
 
     private Boolean hoatDong = true;
 

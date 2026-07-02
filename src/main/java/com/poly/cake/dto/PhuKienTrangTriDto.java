@@ -21,5 +21,9 @@ public class PhuKienTrangTriDto {
         private Integer soLuongTon;
 
         private String anhPhuKien;
+
+        // Đường dẫn model 3D thật (.glb) - CakeBuilder3D.vue ưu tiên đọc field này để
+        // hiển thị đúng hình phụ kiện lên bánh, thay vì đoán theo tên như trước.
+        private String model3dUrl;
     }
 }

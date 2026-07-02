@@ -31,12 +31,22 @@ public class VoucherKhachHang {
     @JoinColumn(name = "khach_hang_id", nullable = false)
     private NguoiDung khachHang;
 
+    /**
+     * Mã giảm giá gốc (trong bảng ma_giam_gia) mà voucher này được đổi ra từ điểm.
+     * NULL nếu voucher được hệ thống/admin tặng trực tiếp, không qua đổi điểm từ 1 mã cụ thể.
+     * Dùng để khi khách DÙNG voucher cá nhân này ở đơn hàng, hệ thống cộng dồn lượt sử dụng
+     * ngược lại về mã gốc — để trang quản lý voucher (đọc từ bảng ma_giam_gia) thống kê đúng.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ma_giam_gia_goc_id")
+    private MaGiamGia maGiamGiaGoc;
+
     /** Tên hiển thị cho khách: "Giảm 50k đơn từ 200k", ... */
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(200)")
     private String tenVoucher;
 
     /** PHAN_TRAM | SO_TIEN_CO_DINH */
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(20)")
     private String loaiGiam;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -52,7 +62,7 @@ public class VoucherKhachHang {
      * Trạng thái:
      * CHUA_SU_DUNG | DA_SU_DUNG | HET_HAN | DA_HUY
      */
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(20)")
     private String trangThai = "CHUA_SU_DUNG";
 
     @Column(nullable = false)

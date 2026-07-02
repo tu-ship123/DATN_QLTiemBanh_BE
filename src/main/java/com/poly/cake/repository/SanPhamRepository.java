@@ -36,10 +36,31 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
     // Tìm đúng 1 sản phẩm theo tên chính xác (dùng để lấy sản phẩm đại diện bánh 3D tùy chỉnh)
     java.util.Optional<SanPham> findByTenSanPham(String tenSanPham);
 
+    // Lấy TẤT CẢ bản ghi trùng tên, cũ nhất trước - phòng trường hợp trước đây đã lỡ
+    // tạo trùng nhiều "sản phẩm đại diện bánh 3D" (id 17,18,19,20...) do gọi API nhiều
+    // lần; luôn ưu tiên dùng bản ghi cũ nhất làm chuẩn, không tạo thêm bản ghi mới.
+    List<SanPham> findByTenSanPhamOrderByIdAsc(String tenSanPham);
+
+    // Tim KHOAN DUNG hon findByTenSanPhamOrderByIdAsc: gop ca nhung ban ghi da duoc
+    // danh dau laNoiBo=true (du ten hien tai la gi) LAN nhung ban ghi ten gan khop
+    // (bo qua khoang trang thua 2 dau + khong phan biet hoa/thuong) - de tu phat hien
+    // va "chua lanh" cac ban ghi cu bi lech ten do loi tao trung truoc day, thay vi chi
+    // dua vao so khop ten tuyet doi (rat de bi bo sot).
+    @Query("SELECT sp FROM SanPham sp WHERE sp.laNoiBo = true " +
+           "OR LOWER(TRIM(sp.tenSanPham)) = LOWER(TRIM(:tenSanPham)) " +
+           "ORDER BY sp.id ASC")
+    List<SanPham> timCacBanGhiCoTheLaCustomCakeMarker(@Param("tenSanPham") String tenSanPham);
+
     @Query("SELECT sp FROM SanPham sp WHERE " +
            "(:keyword IS NULL OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
            "(:trangThai IS NULL OR sp.trangThai = :trangThai) AND " +
-           "(:danhMucId IS NULL OR sp.danhMuc.id = :danhMucId) " +
+           "(:danhMucId IS NULL OR sp.danhMuc.id = :danhMucId) AND " +
+           // Sản phẩm nội bộ (VD: sản phẩm đại diện bánh 3D tùy chỉnh, xem
+           // AdminSanPhamService.getOrCreateCustomCakeMarker) KHÔNG BAO GIỜ được lọt
+           // ra danh sách, dù ở trang khách hay trang quản lý admin. Lọc theo cột
+           // laNoiBo (KHÔNG so khớp tên nữa) để không bị lệch bởi bản ghi trùng/lỗi
+           // encoding/thừa khoảng trắng như trước đây.
+           "sp.laNoiBo = false " +
            "ORDER BY sp.ngayTao DESC")
     List<SanPham> filterProducts(
             @Param("keyword") String keyword,

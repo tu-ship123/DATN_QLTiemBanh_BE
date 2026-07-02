@@ -40,11 +40,11 @@ public class DiemThuong {
      * DOI_VOUCHER       – trừ điểm khi đổi voucher
      * ADMIN_CHINH_SUA   – admin chỉnh tay
      */
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(30)")
     private String loaiGiaoDich;
 
     /** Mô tả nhanh cho từng giao dịch, hiển thị trên UI */
-    @Column(length = 300)
+    @Column(columnDefinition = "NVARCHAR(300)")
     private String moTa;
 
     /** Liên kết đơn hàng nếu có (có thể null với giao dịch ADMIN) */

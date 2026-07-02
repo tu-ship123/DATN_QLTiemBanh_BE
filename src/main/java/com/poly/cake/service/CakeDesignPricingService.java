@@ -89,7 +89,14 @@ public class CakeDesignPricingService {
             if (!(o instanceof Map)) continue;
             Map<String, Object> acc = (Map<String, Object>) o;
 
-            int soLuong = toInt(acc.get("so_luong"), 0);
+            // QUAN TRỌNG: dữ liệu THẬT gửi lên từ CakeBuilder3D.captureSnapshot() là
+            // accessories: [{ uid, phuKienId, tenPhuKien, position, rotationY }] - mỗi
+            // phần tử là 1 phụ kiện thật đã gắn (camelCase, KHÔNG có field "so_luong").
+            // Trước đây hàm này chỉ đọc "so_luong"/"phu_kien_id" (snake_case) nên luôn
+            // ra 0 -> giá phụ kiện không bao giờ được cộng vào tổng tiền khi lưu đơn.
+            // Vẫn đọc thêm bản snake_case để tương thích dữ liệu cũ/format khác nếu có.
+            Object soLuongObj = firstNonNull(acc.get("soLuong"), acc.get("so_luong"));
+            int soLuong = toInt(soLuongObj, 1); // mỗi phần tử = 1 phụ kiện nếu không có field số lượng
             if (soLuong <= 0) continue;
 
             tong = tong.add(donGiaPhuKien(acc).multiply(BigDecimal.valueOf(soLuong)));
@@ -97,14 +104,18 @@ public class CakeDesignPricingService {
         return tong;
     }
 
+    private Object firstNonNull(Object a, Object b) {
+        return a != null ? a : b;
+    }
+
     /**
-     * Ưu tiên lấy giá THẬT trong DB theo phu_kien_id (chống sửa giá từ client).
+     * Ưu tiên lấy giá THẬT trong DB theo phuKienId (chống sửa giá từ client).
      * Nếu id không phải số hợp lệ (VD: "fallback-1" - dữ liệu tĩnh dự phòng của FE khi
      * chưa gọi được API phụ kiện) hoặc không còn tồn tại trong DB, đành tạm tin giá FE
      * gửi kèm để không chặn luồng đặt hàng khi hệ thống phụ kiện đang lỗi.
      */
     private BigDecimal donGiaPhuKien(Map<String, Object> acc) {
-        Object idObj = acc.get("phu_kien_id");
+        Object idObj = firstNonNull(acc.get("phuKienId"), acc.get("phu_kien_id"));
         if (idObj != null) {
             try {
                 Long id = Long.parseLong(idObj.toString());
@@ -119,7 +130,7 @@ public class CakeDesignPricingService {
     }
 
     private BigDecimal donGiaTuFE(Map<String, Object> acc) {
-        Object donGiaObj = acc.get("don_gia");
+        Object donGiaObj = firstNonNull(acc.get("donGia"), acc.get("don_gia"));
         if (donGiaObj instanceof Number) {
             return BigDecimal.valueOf(((Number) donGiaObj).doubleValue());
         }

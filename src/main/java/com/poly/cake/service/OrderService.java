@@ -185,6 +185,17 @@ public class OrderService {
             voucherApDung.setNgaySuDung(LocalDateTime.now());
             voucherKhachHangRepository.save(voucherApDung);
 
+            // Nếu voucher này được đổi ra từ 1 mã giảm giá gốc (đổi điểm), cộng dồn lượt
+            // sử dụng ngược về mã gốc để trang quản lý voucher (đọc bảng ma_giam_gia)
+            // thống kê đúng — trước đây bước này bị thiếu nên admin không thấy được lượt
+            // dùng của các voucher đổi bằng điểm.
+            MaGiamGia maGiamGiaGoc = voucherApDung.getMaGiamGiaGoc();
+            if (maGiamGiaGoc != null) {
+                maGiamGiaGoc.setSoLuotDaDung(
+                        (maGiamGiaGoc.getSoLuotDaDung() == null ? 0 : maGiamGiaGoc.getSoLuotDaDung()) + 1);
+                maGiamGiaRepository.save(maGiamGiaGoc);
+            }
+
             gioHang.setVoucherKhachHang(null);
             gioHangRepository.save(gioHang);
         }

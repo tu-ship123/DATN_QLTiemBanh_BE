@@ -16,12 +16,12 @@ public class CauHinhHeThong {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, length = 100)
+    @Column(unique = true, columnDefinition = "NVARCHAR(100)")
     private String khoaCauHinh;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(500)")
     private String giaTri;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String moTa;
 }

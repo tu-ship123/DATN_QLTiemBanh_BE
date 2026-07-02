@@ -16,12 +16,13 @@ public class DanhMuc {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(150)")
     private String tenDanhMuc;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String moTa;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "NVARCHAR(500)")
     private String anhDaiDien;
 
     private Boolean hoatDong = true;

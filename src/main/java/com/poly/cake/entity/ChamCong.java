@@ -35,7 +35,7 @@ public class ChamCong {
 
     private Integer phutDiTre = 0;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "DUNG_GIO"; // DUNG_GIO, DI_TRE, VANG_MAT, VE_SOM
 
     // ── T062: Dữ liệu kết ca (X-Report / Z-Report) ──────────────────────────
@@ -44,7 +44,7 @@ public class ChamCong {
     private LocalDateTime thoiDiemKetCa;
 
     /** X_REPORT | Z_REPORT | null (chưa kết ca). */
-    @Column(length = 20)
+    @Column(columnDefinition = "NVARCHAR(20)")
     private String loaiBaoCao;
 
     /** Tổng số đơn HOAN_THANH thanh toán trong ca. */
@@ -67,7 +67,7 @@ public class ChamCong {
     private BigDecimal tongDoanhThu;
 
     /** Ghi chú của nhân viên khi kết ca. */
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String ghiChuKetCa;
 
     // ────────────────────────────────────────────────────────────────────────

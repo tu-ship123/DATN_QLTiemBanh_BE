@@ -114,6 +114,7 @@ public class DiemThuongService {
                 .diemSuDung(ma.getDiemCanDung())
                 .trangThai("CHUA_SU_DUNG")
                 .ngayHetHan(LocalDateTime.now().plusDays(90))
+                .maGiamGiaGoc(ma) // ← liên kết ngược để thống kê lượt dùng khi khách dùng voucher này
                 .build();
         voucherRepository.save(voucher);
 

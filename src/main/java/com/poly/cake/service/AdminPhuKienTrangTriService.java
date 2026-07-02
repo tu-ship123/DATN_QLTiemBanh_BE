@@ -22,6 +22,7 @@ public class AdminPhuKienTrangTriService {
         public BigDecimal donGia;
         public Integer soLuongTon;
         public String anhPhuKien;
+        public String model3dUrl;
         public Boolean hoatDong;
     }
 
@@ -31,6 +32,7 @@ public class AdminPhuKienTrangTriService {
         public BigDecimal donGia;
         public Integer soLuongTon;
         public String anhPhuKien;
+        public String model3dUrl;
         public Boolean hoatDong;
         public String ngayTao;
 
@@ -40,6 +42,7 @@ public class AdminPhuKienTrangTriService {
             this.donGia      = e.getDonGia();
             this.soLuongTon  = e.getSoLuongTon();
             this.anhPhuKien  = e.getAnhPhuKien();
+            this.model3dUrl  = e.getModel3dUrl();
             this.hoatDong    = e.getHoatDong();
             this.ngayTao     = e.getNgayTao() != null ? e.getNgayTao().toString() : null;
         }
@@ -70,6 +73,7 @@ public class AdminPhuKienTrangTriService {
         e.setDonGia(req.donGia);
         e.setSoLuongTon(req.soLuongTon != null ? req.soLuongTon : 0);
         e.setAnhPhuKien(req.anhPhuKien);
+        e.setModel3dUrl(req.model3dUrl);
         e.setHoatDong(req.hoatDong != null ? req.hoatDong : true);
         return new PhuKienResponse(repo.save(e));
     }
@@ -82,6 +86,7 @@ public class AdminPhuKienTrangTriService {
         if (req.donGia      != null) e.setDonGia(req.donGia);
         if (req.soLuongTon  != null) e.setSoLuongTon(req.soLuongTon);
         if (req.anhPhuKien  != null) e.setAnhPhuKien(req.anhPhuKien);
+        if (req.model3dUrl  != null) e.setModel3dUrl(req.model3dUrl);
         if (req.hoatDong    != null) e.setHoatDong(req.hoatDong);
         return new PhuKienResponse(repo.save(e));
     }

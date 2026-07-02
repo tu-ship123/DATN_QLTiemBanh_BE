@@ -21,7 +21,7 @@ public class LamMoiToken {
     @JoinColumn(name = "nguoi_dung_id", nullable = false)
     private NguoiDung nguoiDung;
 
-    @Column(nullable = false, unique = true, length = 512)
+    @Column(nullable = false, unique = true, columnDefinition = "NVARCHAR(512)")
     private String token;
 
     @Column(nullable = false)

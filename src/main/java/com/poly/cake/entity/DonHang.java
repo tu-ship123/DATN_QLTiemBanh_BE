@@ -47,26 +47,27 @@ public class DonHang {
     @Column(precision = 12, scale = 2)
     private BigDecimal soTienCoc = BigDecimal.ZERO;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String thietKeBanhJson;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String diaChiGiao;
 
     private LocalDateTime ngayGiaoDuKien;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String ghiChu;
 
     private LocalDateTime ngayTao;
 
     private LocalDateTime ngayCapNhat;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String lyDoHuy;
 
     private LocalDateTime thoiDiemGiao;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String nguonDon = "ONLINE"; // ONLINE, POS
 
     // Mapping 1-Nhiều với bảng chi tiết đơn hàng

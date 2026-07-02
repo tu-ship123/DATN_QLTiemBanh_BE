@@ -36,10 +36,10 @@ public class PhanCa {
      *   DA_KET_CA – Nhân viên đã kết ca chính thức (Z-Report). Không đổi tiếp.
      *   DA_HUY    – Ca bị hủy.
      */
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "DA_LAP"; // DA_LAP | XAC_NHAN | DA_KET_CA | DA_HUY
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String ghiChu;
 
     private LocalDateTime ngayTao;

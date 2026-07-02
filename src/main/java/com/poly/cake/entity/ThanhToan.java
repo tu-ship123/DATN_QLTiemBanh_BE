@@ -22,15 +22,16 @@ public class ThanhToan {
     @JoinColumn(name = "don_hang_id", nullable = false, unique = true)
     private DonHang donHang;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String hinhThuc; // VNPAY, MOMO, TIEN_MAT, CHUYEN_KHOAN
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal soTien;
 
+    @Column(columnDefinition = "NVARCHAR(255)")
     private String maGiaoDich;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "CHO_THANH_TOAN"; // CHO_THANH_TOAN, THANH_CONG, THAT_BAI, DA_HOAN_TIEN
 
     private LocalDateTime thoiDiemThanhToan;

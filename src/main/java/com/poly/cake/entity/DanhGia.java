@@ -32,10 +32,10 @@ public class DanhGia {
     @Column(nullable = false)
     private Integer soSao;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String phanHoiCuaTiem;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String noiDung;
 
     private Boolean biAn = false;
