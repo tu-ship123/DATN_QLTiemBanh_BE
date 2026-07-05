@@ -30,6 +30,13 @@ public class SanPham {
 
     private Integer soLuongTon = 0;
 
+    // Ngưỡng cảnh báo tồn kho thấp - khi soLuongTon <= nguongCanhBao thì hệ thống
+    // sẽ gửi thông báo TON_KHO cho Admin/NhanVien (xem InventoryService).
+    // Ngưỡng cố định mặc định = 10 cho mọi sản phẩm theo yêu cầu nghiệp vụ.
+    @Column(name = "nguong_canh_bao")
+    @Builder.Default
+    private Integer nguongCanhBao = 10;
+
     @Column(columnDefinition = "NVARCHAR(500)")
     private String anhSanPham;
 

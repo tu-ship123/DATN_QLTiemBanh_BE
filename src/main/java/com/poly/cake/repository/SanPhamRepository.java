@@ -68,4 +68,8 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
             @Param("danhMucId") Long danhMucId
     );
 
+    // Truy vấn danh sách sản phẩm thực tế có số lượng tồn thấp hơn hoặc bằng ngưỡng cảnh báo
+    // (Loại bỏ các sản phẩm ảo hoặc marker nội bộ như bánh 3D tùy chỉnh)
+    @Query("SELECT s FROM SanPham s WHERE s.laNoiBo = false AND s.soLuongTon <= s.nguongCanhBao")
+    List<SanPham> findLowStockProducts();
 }

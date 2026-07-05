@@ -83,8 +83,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*"));
-        config.setAllowedHeaders(Arrays.asList("*"));
+config.setAllowedOriginPatterns(Arrays.asList(
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://app.chocopine.xyz"
+));        config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

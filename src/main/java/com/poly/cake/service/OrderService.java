@@ -54,6 +54,9 @@ public class OrderService {
 
     private final ThanhToanRepository thanhToanRepository;
 
+    // Dùng để trừ tồn kho + tự động cảnh báo tồn kho thấp ngay khi thanh toán thành công
+    private final InventoryService inventoryService;
+
     // Giỏ hàng & mã giảm giá — dùng để tự động mang mã đã áp ở giỏ hàng sang lúc checkout
     private final GioHangRepository gioHangRepository;
 
@@ -360,6 +363,15 @@ public class OrderService {
         DonHang donHang = donHangRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + orderId));
 
+        // Chống xử lý trùng lặp: SePay có thể gọi lại webhook (retry) cho cùng 1 giao
+        // dịch. Nếu đơn đã được xác nhận thanh toán trước đó rồi thì bỏ qua, KHÔNG
+        // trừ tồn kho thêm lần nữa (nếu không sẽ bị trừ kho gấp đôi).
+        if (donHang.getTrangThai() != TrangThaiDonHang.CHO_XAC_NHAN) {
+            log.info("Webhook SePay: đơn DH{} đã được xử lý thanh toán trước đó (trạng thái hiện tại: {}), bỏ qua.",
+                    orderId, donHang.getTrangThai());
+            return;
+        }
+
         BigDecimal tongTien = donHang.getTongTien() != null ? donHang.getTongTien() : BigDecimal.ZERO;
 
         // Đối chiếu số tiền: nếu chuyển thiếu so với tổng tiền đơn hàng thì
@@ -381,6 +393,11 @@ public class OrderService {
         // Cập nhật trạng thái bằng Enum
         donHang.setTrangThai(TrangThaiDonHang.DA_XAC_NHAN);
         donHangRepository.save(donHang);
+
+        // Thanh toán THÀNH CÔNG -> trừ tồn kho cho toàn bộ sản phẩm trong đơn hàng.
+        // InventoryService tự lo việc trừ an toàn (không âm kho) + tự gửi cảnh báo
+        // tồn kho thấp (ngưỡng mặc định = 10) hoặc cảnh báo bán vượt tồn kho nếu cần.
+        inventoryService.truTonKhoTheoDonHang(donHang);
 
         notificationService.notifyNewOrderToAdmins(
                 "✅ Đơn hàng DH" + orderId + " đã thanh toán qua SePay, chuyển sang DA_XAC_NHAN!");

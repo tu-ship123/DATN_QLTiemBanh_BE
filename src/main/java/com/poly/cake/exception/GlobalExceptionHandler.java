@@ -52,6 +52,16 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", "Dữ liệu không hợp lệ!", "errors", errors));
     }
 
+    // Lỗi 409: Vi phạm ràng buộc UNIQUE ở DB (trùng email, trùng SĐT...)
+    // Đây là lưới an toàn cuối cùng — nếu tầng Service lỡ quên check trùng trước khi save,
+    // lỗi này vẫn được bắt lại và trả về thông báo thân thiện cho FE, thay vì lỗi 500 khó hiểu.
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException e) {
+        log.warn("Vi phạm ràng buộc dữ liệu: ", e);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Dữ liệu bị trùng (email hoặc số điện thoại đã tồn tại)!"));
+    }
+
     // Lỗi 400: Sai kiểu dữ liệu tham số (ví dụ @RequestParam Long id mà truyền "abc")
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException e) {

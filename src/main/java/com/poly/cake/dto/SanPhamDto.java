@@ -33,6 +33,22 @@ public class SanPhamDto {
         private String trangThai;
 
         private String moTa;
+
+        // Ngưỡng cảnh báo tồn kho thấp - không bắt buộc, nếu không truyền thì
+        // service sẽ tự gán mặc định = 10.
+        @Min(value = 0, message = "Ngưỡng cảnh báo không được âm")
+        private Integer nguongCanhBao;
+    }
+
+    // Dùng cho API cập nhật tồn kho (nhập thêm hàng / điều chỉnh thủ công)
+    // PATCH /api/v1/admin/products/{id}/inventory
+    @Data
+    public static class InventoryUpdate {
+
+        // Số lượng thay đổi: dương = nhập thêm hàng, âm = xuất/điều chỉnh giảm.
+        // Không dùng số 0 vì không có tác dụng.
+        @NotNull(message = "Số lượng thay đổi không được để trống")
+        private Integer soLuongThayDoi;
     }
 
     @Data
@@ -57,5 +73,7 @@ public class SanPhamDto {
         private String moTa;
 
         private LocalDateTime ngayTao;
+
+        private Integer nguongCanhBao;
     }
 }

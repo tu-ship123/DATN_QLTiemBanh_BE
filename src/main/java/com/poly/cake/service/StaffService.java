@@ -1,5 +1,6 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 
 import com.poly.cake.dto.StaffDto;
@@ -33,6 +34,18 @@ public class StaffService {
     }
 
     public NguoiDung createStaff(StaffDto.CreateRequest request) {
+        // Điều kiện 1: Email đã tồn tại (dù là khách hàng, nhân viên hay admin) -> chặn sớm,
+        // tránh để văng lỗi 500 do vi phạm ràng buộc UNIQUE ở DB (khó hiểu với FE)
+        if (nguoiDungRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException("Email đã được sử dụng, vui lòng chọn email khác!");
+        }
+
+        // Điều kiện 2: Số điện thoại đã tồn tại -> báo lỗi rõ ràng
+        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()
+                && nguoiDungRepository.existsBySoDienThoai(request.getSoDienThoai())) {
+            throw new BusinessException("Số điện thoại đã được sử dụng, vui lòng chọn số khác!");
+        }
+
         // 1. Khởi tạo một Entity mới cứng
         NguoiDung staff = new NguoiDung();
 

@@ -23,4 +23,12 @@ public class NotificationService {
         // User sẽ lắng nghe ở endpoint: /user/queue/notifications
         messagingTemplate.convertAndSendToUser(emailKhachHang, "/queue/notifications", thongBao);
     }
+
+    // 3. BROADCAST: Cảnh báo tồn kho thấp / bán vượt tồn kho cho toàn bộ Admin/NhanVien
+    // Dùng riêng kênh /topic/admin/inventory (tách khỏi kênh đơn hàng /topic/admin/orders)
+    // để FE có thể lắng nghe và hiển thị badge cảnh báo tồn kho độc lập.
+    // Được gọi bởi InventoryService khi tồn kho <= ngưỡng cảnh báo hoặc khi bán vượt tồn kho.
+    public void notifyLowStockToAdmins(String thongBao) {
+        messagingTemplate.convertAndSend("/topic/admin/inventory", thongBao);
+    }
 }

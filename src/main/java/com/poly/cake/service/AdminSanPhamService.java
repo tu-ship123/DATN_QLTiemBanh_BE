@@ -1,5 +1,6 @@
 package com.poly.cake.service;
 
+import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 
 import com.poly.cake.dto.SanPhamDto;
@@ -19,9 +20,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminSanPhamService {
 
+    // Ngưỡng cảnh báo tồn kho mặc định cố định = 10 khi admin không truyền riêng
+    private static final int NGUONG_CANH_BAO_MAC_DINH = 10;
+
     private final SanPhamRepository sanPhamRepository;
 
     private final DanhMucRepository danhMucRepository;
+
+    private final InventoryService inventoryService;
 
     /**
      * Tên sản phẩm "đại diện" dùng chung cho MỌI chiếc bánh khách tự thiết kế ở
@@ -109,6 +115,15 @@ public class AdminSanPhamService {
         return mapToResponseDto(sanPham);
     }
 
+    // LẤY DANH SÁCH SẢN PHẨM TỒN KHO THẤP CẦN CẢNH BÁO
+    @Transactional(readOnly = true)
+    public List<SanPhamDto.Response> getLowStockProducts() {
+        return sanPhamRepository.findLowStockProducts()
+                .stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
     // 3. THÊM SẢN PHẨM
     @Transactional
     public SanPhamDto.Response createProduct(
@@ -127,6 +142,11 @@ public class AdminSanPhamService {
         sanPham.setSoLuongTon(request.getSoLuongTon());
         sanPham.setAnhSanPham(request.getAnhSanPham());
         sanPham.setMoTa(request.getMoTa());
+        sanPham.setNguongCanhBao(
+                request.getNguongCanhBao() != null
+                        ? request.getNguongCanhBao()
+                        : NGUONG_CANH_BAO_MAC_DINH
+        );
 
         if (request.getTrangThai() != null
                 && !request.getTrangThai().isBlank()) {
@@ -134,6 +154,10 @@ public class AdminSanPhamService {
         }
 
         SanPham saved = sanPhamRepository.save(sanPham);
+
+        // Sản phẩm mới thêm có thể được nhập với số lượng tồn ban đầu đã thấp hơn
+        // ngưỡng cảnh báo -> kiểm tra và gửi cảnh báo ngay nếu cần.
+        inventoryService.kiemTraVaCanhBaoNeuTonKhoThap(saved);
 
         return mapToResponseDto(saved);
     }
@@ -160,10 +184,49 @@ public class AdminSanPhamService {
         sanPham.setAnhSanPham(request.getAnhSanPham());
         sanPham.setMoTa(request.getMoTa());
         sanPham.setTrangThai(request.getTrangThai());
+        sanPham.setNguongCanhBao(
+                request.getNguongCanhBao() != null
+                        ? request.getNguongCanhBao()
+                        : NGUONG_CANH_BAO_MAC_DINH
+        );
 
         SanPham updated = sanPhamRepository.save(sanPham);
 
+        inventoryService.kiemTraVaCanhBaoNeuTonKhoThap(updated);
+
         return mapToResponseDto(updated);
+    }
+
+    // 8. CẬP NHẬT TỒN KHO (nhập thêm hàng / điều chỉnh tay từ trang admin)
+    // soLuongThayDoi > 0: nhập thêm hàng | soLuongThayDoi < 0: xuất/điều chỉnh giảm
+    // Sau khi cập nhật, tự động kiểm tra ngưỡng cảnh báo tồn kho thấp (mặc định = 10).
+    @Transactional
+    public SanPhamDto.Response capNhatTonKho(Long id, Integer soLuongThayDoi) {
+
+        sanPhamRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+
+        if (soLuongThayDoi == null || soLuongThayDoi == 0) {
+            throw new BusinessException("Số lượng thay đổi phải khác 0");
+        }
+
+        if (soLuongThayDoi > 0) {
+            sanPhamRepository.congLaiSoLuongTon(id, soLuongThayDoi);
+        } else {
+            int soDongBiAnhHuong = sanPhamRepository.truSoLuongTon(id, -soLuongThayDoi);
+            if (soDongBiAnhHuong == 0) {
+                throw new BusinessException(
+                        "Số lượng tồn kho hiện tại không đủ để trừ " + (-soLuongThayDoi));
+            }
+        }
+
+        // Đọc lại bản ghi mới nhất sau UPDATE, rồi kiểm tra + gửi cảnh báo nếu cần
+        SanPham sanPhamMoiNhat = sanPhamRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+
+        inventoryService.kiemTraVaCanhBaoNeuTonKhoThap(sanPhamMoiNhat);
+
+        return mapToResponseDto(sanPhamMoiNhat);
     }
 
     // 5. XÓA SẢN PHẨM
@@ -229,6 +292,7 @@ public class AdminSanPhamService {
         dto.setTrangThai(sanPham.getTrangThai());
         dto.setMoTa(sanPham.getMoTa());
         dto.setNgayTao(sanPham.getNgayTao());
+        dto.setNguongCanhBao(sanPham.getNguongCanhBao());
 
         return dto;
     }

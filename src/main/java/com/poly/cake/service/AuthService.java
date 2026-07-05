@@ -45,9 +45,15 @@ public class AuthService {
     // T007: Đăng ký
     @Transactional
     public void register(RegisterRequest request) {
-        if (nguoiDungRepository.findByEmail(request.getEmail()).isPresent()) {
-            // [GIỮ NGUYÊN] Trường hợp đăng ký báo lỗi trùng email là hợp lý
+        // Điều kiện 1: Email đã tồn tại -> không cho đăng ký trùng
+        if (nguoiDungRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException("Email đã được sử dụng!");
+        }
+
+        // Điều kiện 2: Số điện thoại đã được dùng cho tài khoản khác -> báo lỗi rõ ràng cho FE
+        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()
+                && nguoiDungRepository.existsBySoDienThoai(request.getSoDienThoai())) {
+            throw new BusinessException("Số điện thoại đã được sử dụng!");
         }
 
         NguoiDung user = NguoiDung.builder()
@@ -78,8 +84,16 @@ public class AuthService {
         NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại"));
 
-        if (!user.getTrangThai().equals("HOAT_DONG")) {
-            throw new BusinessException("Tài khoản đã bị khóa hoặc ngừng hoạt động!");
+        // Điều kiện trạng thái tài khoản: áp dụng chung cho cả khách hàng & nhân viên
+        // vì hai đối tượng này dùng chung 1 endpoint đăng nhập, chỉ khác nhau ở field "quyen"
+        if ("BI_KHOA".equals(user.getTrangThai())) {
+            throw new BusinessException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ!");
+        }
+        if ("NGUNG_HOAT_DONG".equals(user.getTrangThai())) {
+            throw new BusinessException("Tài khoản của bạn đã ngừng hoạt động!");
+        }
+        if (!"HOAT_DONG".equals(user.getTrangThai())) {
+            throw new BusinessException("Tài khoản không ở trạng thái hoạt động, vui lòng liên hệ quản trị viên!");
         }
 
         // Tạo JWT
