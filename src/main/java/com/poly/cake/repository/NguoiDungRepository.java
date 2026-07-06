@@ -21,6 +21,12 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long> {
     // Tìm khách theo số điện thoại (dùng cho POS cộng điểm offline)
     Optional<NguoiDung> findBySoDienThoaiAndQuyen(String soDienThoai, String quyen);
 
+    // Tìm tài khoản theo số điện thoại (dùng cho đăng ký/đăng nhập OTP SĐT)
+    Optional<NguoiDung> findBySoDienThoai(String soDienThoai);
+
+    // Tìm tài khoản đã liên kết Google theo "sub" (định danh Google duy nhất)
+    Optional<NguoiDung> findByGoogleId(String googleId);
+
     // Lấy danh sách người dùng theo nhiều quyền (VD: ADMIN, NHAN_VIEN) và đang hoạt
     // động - dùng để gửi cảnh báo tồn kho thấp / bán vượt tồn kho (InventoryService)
     List<NguoiDung> findByQuyenInAndTrangThai(List<String> quyen, String trangThai);

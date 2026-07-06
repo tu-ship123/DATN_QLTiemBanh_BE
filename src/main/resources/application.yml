@@ -30,3 +30,10 @@ springdoc:
 # Cấu hình JWT chung
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+# Cấu hình đăng nhập Google OAuth2
+# Client ID lấy từ Google Cloud Console (OAuth 2.0 Client IDs) - PHẢI trùng
+# với Client ID mà FE (web/app) dùng để lấy idToken, nếu không sẽ bị từ chối
+# ở bước kiểm tra "aud" nhằm chống giả mạo token.
+google:
+  client-id: "975668760156-2k3s1v811pok7eq207bs181u7l9qk6v7.apps.googleusercontent.com"
