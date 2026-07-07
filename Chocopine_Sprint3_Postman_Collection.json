@@ -1,0 +1,198 @@
+{
+  "info": {
+    "name": "Chocopine Sprint 3",
+    "description": "Postman Collection cho các API của Sprint 3 (Orders, Inventory, Reviews, Products)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Inventory",
+      "item": [
+        {
+          "name": "Lấy DS Cảnh Báo Tồn Kho",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/canh-bao-ton-thap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "canh-bao-ton-thap"]
+            }
+          }
+        },
+        {
+          "name": "Điều chỉnh kho thủ công (Nhập hàng)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"soLuongThayDoi\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/1/dieu-chinh-ton-kho",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "1", "dieu-chinh-ton-kho"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Reviews",
+      "item": [
+        {
+          "name": "Lấy DS Đánh Giá",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews"]
+            }
+          }
+        },
+        {
+          "name": "Thống kê Đánh Giá",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Phản hồi Đánh Giá",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phanHoi\": \"Cảm ơn bạn đã phản hồi!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews/1/reply",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews", "1", "reply"]
+            }
+          }
+        },
+        {
+          "name": "Ẩn/Hiện Đánh Giá",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews/1/toggle",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews", "1", "toggle"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Orders",
+      "item": [
+        {
+          "name": "Lấy DS Đơn Hàng (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật trạng thái",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/status?trangThaiMoi=DA_XAC_NHAN",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "status"],
+              "query": [
+                { "key": "trangThaiMoi", "value": "DA_XAC_NHAN" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "In Phiếu Đơn Hàng",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/print",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "print"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_TOKEN_HERE",
+      "type": "string"
+    }
+  ]
+}
