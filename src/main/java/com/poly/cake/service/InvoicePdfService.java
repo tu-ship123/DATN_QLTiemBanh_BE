@@ -1,15 +1,12 @@
 package com.poly.cake.service;
 
+import com.openhtmltopdf.extend.FSSupplier;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -22,27 +19,33 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * T072 – Sinh file PDF hóa đơn bán hàng để đính kèm email xác nhận đặt hàng.
+ * T072 - Sinh file PDF hoa don ban hang de dinh kem email xac nhan dat hang.
  * <p>
- * Dùng Apache PDFBox (org.apache.pdfbox:pdfbox) thay vì iText vì PDFBox là
- * Apache License 2.0 (miễn phí hoàn toàn cho mục đích thương mại), khác với
- * iText 5 là AGPL (bắt buộc phải mua license nếu dùng cho sản phẩm đóng nguồn).
+ * DA DOI THU VIEN: chuyen tu Apache PDFBox "tho" (tu ve text theo toa do
+ * x/y, tu ngat trang bang tay) sang <b>openhtmltopdf</b> - build hoa don
+ * duoi dang chuoi HTML/CSS (giong viet 1 trang web tinh) roi convert sang
+ * PDF. Ly do doi:
+ * <ul>
+ *   <li>Khong can tu tinh toa do cot (COL_TEN, COL_SL...), khong can tu
+ *       viet logic ngat trang (checkPageBreak) - HTML/CSS tu lo het.</li>
+ *   <li>Layout de chinh sua, de them border/mau nen/logo hon nhieu.</li>
+ *   <li>Van nhung (embed) font Unicode TTF de hien thi tieng Viet co dau
+ *       y nhu cach cu, chi khac la khai bao qua PdfRendererBuilder.useFont()
+ *       thay vi PDType0Font.load().</li>
+ * </ul>
  * <p>
- * QUAN TRỌNG - PDFBox không có font hỗ trợ tiếng Việt có dấu sẵn (font chuẩn
- * Helvetica/Times chỉ có bảng mã Latin cơ bản), nên bắt buộc phải nhúng
- * (embed) một font Unicode TTF. Ở đây dùng font DejaVu Sans (SIL Open Font
- * License - miễn phí) đặt sẵn tại: src/main/resources/fonts/DejaVuSans.ttf
- * và DejaVuSans-Bold.ttf.
- * <p>
- * ⚠️ CẦN THÊM DEPENDENCY VÀO pom.xml (project gửi lên không có sẵn pom.xml
- * nên phải tự thêm thủ công):
+ * openhtmltopdf-pdfbox van dung PDFBox ben duoi de ghi ra PDF nen van can
+ * dependency org.apache.pdfbox:pdfbox (da co san trong pom.xml), CHI THEM
+ * dependency moi:
  * <pre>{@code
  * <dependency>
- *     <groupId>org.apache.pdfbox</groupId>
- *     <artifactId>pdfbox</artifactId>
- *     <version>2.0.31</version>
+ *     <groupId>com.openhtmltopdf</groupId>
+ *     <artifactId>openhtmltopdf-pdfbox</artifactId>
+ *     <version>1.0.10</version>
  * </dependency>
  * }</pre>
+ * Font TTF van de tai: src/main/resources/fonts/DejaVuSans.ttf va
+ * DejaVuSans-Bold.ttf (SIL Open Font License - mien phi).
  */
 @Slf4j
 @Service
@@ -50,139 +53,169 @@ public class InvoicePdfService {
 
     private static final DateTimeFormatter NGAY_GIO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DecimalFormat TIEN_FORMAT = new DecimalFormat("#,##0");
-
-    private static final float MARGIN = 50f;
-    private static final float PAGE_WIDTH = PDRectangle.A4.getWidth();
-    private static final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
-
-    // Vị trí các cột trong bảng sản phẩm
-    private static final float COL_TEN = MARGIN;
-    private static final float COL_SL = MARGIN + 270;
-    private static final float COL_DON_GIA = MARGIN + 330;
-    private static final float COL_THANH_TIEN = MARGIN + 430;
+    private static final String FONT_FAMILY = "DejaVu Sans";
 
     /**
-     * Sinh PDF hóa đơn cho 1 đơn hàng, trả về mảng byte để đính kèm email
-     * hoặc lưu file / trả về FE tải xuống.
+     * Sinh PDF hoa don cho 1 don hang, tra ve mang byte de dinh kem email
+     * hoac luu file / tra ve FE tai xuong.
      */
     public byte[] generateInvoicePdf(DonHang donHang) {
-        try (PDDocument document = new PDDocument()) {
-            PDFont fontRegular = loadFont(document, "fonts/DejaVuSans.ttf");
-            PDFont fontBold = loadFont(document, "fonts/DejaVuSans-Bold.ttf");
-
-            Trang trang = new Trang(document);
-
-            // ── Tiêu đề ──────────────────────────────────────────────────
-            trang.writeCentered(fontBold, 18, "CHOCOPINE BAKERY");
-            trang.y -= 22;
-            trang.writeCentered(fontBold, 13, "HÓA ĐƠN BÁN HÀNG / XÁC NHẬN ĐẶT HÀNG");
-            trang.y -= 28;
-
-            String maDonHang = "HD-" + donHang.getId();
-            trang.writeLeft(fontRegular, 11, "Mã đơn hàng: " + maDonHang);
-            trang.writeLeft(fontRegular, 11, "Ngày đặt: "
-                    + (donHang.getNgayTao() != null ? donHang.getNgayTao().format(NGAY_GIO) : "—"));
-            trang.writeLeft(fontRegular, 11, "Trạng thái: " + donHang.getTrangThai().name());
-            trang.writeLeft(fontRegular, 11, "Nguồn đơn: "
-                    + ("ONLINE".equals(donHang.getNguonDon()) ? "Đặt hàng online" : donHang.getNguonDon()));
-            trang.y -= 14;
-
-            // ── Thông tin khách hàng ─────────────────────────────────────
-            trang.writeLeft(fontBold, 12, "Thông tin khách hàng");
-            NguoiDung kh = donHang.getKhachHang();
-            if (kh != null) {
-                trang.writeLeft(fontRegular, 11, "Họ tên: " + nvl(kh.getHoTen()));
-                trang.writeLeft(fontRegular, 11, "Email: " + nvl(kh.getEmail()));
-                trang.writeLeft(fontRegular, 11, "Số điện thoại: " + nvl(kh.getSoDienThoai()));
-            }
-            trang.writeLeft(fontRegular, 11, "Địa chỉ giao hàng: " + nvl(donHang.getDiaChiGiao()));
-            if (donHang.getNgayGiaoDuKien() != null) {
-                trang.writeLeft(fontRegular, 11,
-                        "Ngày giao dự kiến: " + donHang.getNgayGiaoDuKien().toLocalDate());
-            }
-            trang.y -= 18;
-
-            // ── Bảng sản phẩm ────────────────────────────────────────────
-            trang.checkPageBreak(60);
-            trang.drawTableHeader(fontBold);
-
-            List<ChiTietDonHang> items = donHang.getChiTietDonHangs();
-            BigDecimal tongTienHang = BigDecimal.ZERO;
-
-            if (items != null) {
-                for (ChiTietDonHang ct : items) {
-                    trang.checkPageBreak(25);
-
-                    String ten = ct.getSanPham() != null ? ct.getSanPham().getTenSanPham() : "Sản phẩm";
-                    int soLuong = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
-                    BigDecimal donGia = ct.getDonGiaTaiThoiDiem() != null ? ct.getDonGiaTaiThoiDiem() : BigDecimal.ZERO;
-                    BigDecimal thanhTien = donGia.multiply(BigDecimal.valueOf(soLuong));
-                    tongTienHang = tongTienHang.add(thanhTien);
-
-                    trang.drawTableRow(fontRegular, truncate(ten, 40), String.valueOf(soLuong),
-                            formatTien(donGia), formatTien(thanhTien));
-                }
-            }
-
-            trang.y -= 6;
-            trang.drawLine();
-            trang.y -= 20;
-
-            // ── Tổng kết ─────────────────────────────────────────────────
-            trang.checkPageBreak(100);
-
-            BigDecimal tongThanhToan = donHang.getTongTien() != null ? donHang.getTongTien() : tongTienHang;
-
-            trang.writeRight(fontRegular, 11, "Tổng tiền hàng: " + formatTien(tongTienHang) + " đ");
-
-            if (donHang.getMaGiamGia() != null) {
-                trang.writeRight(fontRegular, 11,
-                        "Mã giảm giá áp dụng: " + donHang.getMaGiamGia().getMaCode());
-            } else if (donHang.getVoucherKhachHang() != null) {
-                trang.writeRight(fontRegular, 11,
-                        "Voucher áp dụng: " + donHang.getVoucherKhachHang().getTenVoucher());
-            }
-
-            if (donHang.getSoTienCoc() != null && donHang.getSoTienCoc().compareTo(BigDecimal.ZERO) > 0) {
-                trang.writeRight(fontRegular, 11, "Đã đặt cọc: " + formatTien(donHang.getSoTienCoc()) + " đ");
-                trang.writeRight(fontRegular, 11,
-                        "Còn lại phải thanh toán: " + formatTien(tongThanhToan.subtract(donHang.getSoTienCoc())) + " đ");
-            }
-
-            trang.writeRight(fontBold, 13, "TỔNG THANH TOÁN: " + formatTien(tongThanhToan) + " đ");
-            trang.y -= 20;
-
-            if (donHang.getGhiChu() != null && !donHang.getGhiChu().isBlank()) {
-                trang.checkPageBreak(40);
-                trang.writeLeft(fontBold, 11, "Ghi chú đơn hàng:");
-                trang.writeLeft(fontRegular, 10, truncate(donHang.getGhiChu(), 110));
-            }
-
-            trang.y -= 20;
-            trang.checkPageBreak(30);
-            trang.writeCentered(fontRegular, 10,
-                    "Cảm ơn quý khách đã tin tưởng và ủng hộ Chocopine Bakery! 🍰");
-
-            trang.close();
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            document.save(out);
-            return out.toByteArray();
+        try {
+            String html = buildInvoiceHtml(donHang);
+            return renderHtmlToPdf(html);
         } catch (IOException e) {
-            log.error("Lỗi sinh PDF hóa đơn cho đơn hàng HD-{}: {}", donHang.getId(), e.getMessage(), e);
-            throw new RuntimeException("Không thể sinh PDF hóa đơn: " + e.getMessage(), e);
+            log.error("Loi sinh PDF hoa don cho don hang HD-{}: {}", donHang.getId(), e.getMessage(), e);
+            throw new RuntimeException("Khong the sinh PDF hoa don: " + e.getMessage(), e);
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // HELPER: Nạp font TTF Unicode từ resources/fonts để nhúng vào PDF
+    // HTML → PDF: nạp font, build renderer, xuất byte[]
     // ─────────────────────────────────────────────────────────────────────
-    private PDFont loadFont(PDDocument document, String classpathLocation) throws IOException {
-        try (InputStream is = new ClassPathResource(classpathLocation).getInputStream()) {
-            return PDType0Font.load(document, is);
+    private byte[] renderHtmlToPdf(String html) throws IOException {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PdfRendererBuilder builder = new PdfRendererBuilder();
+
+            // Nhúng font Unicode để hiển thị tiếng Việt có dấu.
+            // Mỗi lần renderer cần đọc font, supplier sẽ mở 1 InputStream mới
+            // từ classpath (không dùng chung 1 stream đã đọc hết).
+            builder.useFont(
+                    (FSSupplier<InputStream>) () -> openFontStream("fonts/DejaVuSans.ttf"),
+                    FONT_FAMILY, 400, FontStyle.NORMAL, true);
+            builder.useFont(
+                    (FSSupplier<InputStream>) () -> openFontStream("fonts/DejaVuSans-Bold.ttf"),
+                    FONT_FAMILY, 700, FontStyle.NORMAL, true);
+
+            builder.withHtmlContent(html, null);
+            builder.toStream(out);
+            builder.run();
+
+            return out.toByteArray();
         }
     }
 
+    private InputStream openFontStream(String classpathLocation) {
+        try {
+            return new ClassPathResource(classpathLocation).getInputStream();
+        } catch (IOException e) {
+            throw new RuntimeException("Không tìm thấy font " + classpathLocation, e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Build nội dung HTML của hóa đơn
+    // ─────────────────────────────────────────────────────────────────────
+    private String buildInvoiceHtml(DonHang donHang) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("<html><head><meta charset=\"UTF-8\"/><style>").append(css()).append("</style></head><body>");
+
+        sb.append("<h1>CHOCOPINE BAKERY</h1>");
+        sb.append("<h2>HÓA ĐƠN BÁN HÀNG / XÁC NHẬN ĐẶT HÀNG</h2>");
+
+        String maDonHang = "HD-" + donHang.getId();
+        sb.append("<div class=\"info\">");
+        sb.append("<p><b>Mã đơn hàng:</b> ").append(esc(maDonHang)).append("</p>");
+        sb.append("<p><b>Ngày đặt:</b> ").append(esc(donHang.getNgayTao() != null
+                ? donHang.getNgayTao().format(NGAY_GIO) : "—")).append("</p>");
+        sb.append("<p><b>Trạng thái:</b> ").append(esc(donHang.getTrangThai().name())).append("</p>");
+        sb.append("<p><b>Nguồn đơn:</b> ").append(esc("ONLINE".equals(donHang.getNguonDon())
+                ? "Đặt hàng online" : donHang.getNguonDon())).append("</p>");
+        sb.append("</div>");
+
+        sb.append("<h3>Thông tin khách hàng</h3>");
+        sb.append("<div class=\"info\">");
+        NguoiDung kh = donHang.getKhachHang();
+        if (kh != null) {
+            sb.append("<p><b>Họ tên:</b> ").append(esc(nvl(kh.getHoTen()))).append("</p>");
+            sb.append("<p><b>Email:</b> ").append(esc(nvl(kh.getEmail()))).append("</p>");
+            sb.append("<p><b>Số điện thoại:</b> ").append(esc(nvl(kh.getSoDienThoai()))).append("</p>");
+        }
+        sb.append("<p><b>Địa chỉ giao hàng:</b> ").append(esc(nvl(donHang.getDiaChiGiao()))).append("</p>");
+        if (donHang.getNgayGiaoDuKien() != null) {
+            sb.append("<p><b>Ngày giao dự kiến:</b> ")
+                    .append(esc(donHang.getNgayGiaoDuKien().toLocalDate().toString())).append("</p>");
+        }
+        sb.append("</div>");
+
+        // ── Bảng sản phẩm ────────────────────────────────────────────────
+        sb.append("<table class=\"items\">");
+        sb.append("<thead><tr><th>Sản phẩm</th><th class=\"num\">SL</th><th class=\"num\">Đơn giá</th><th class=\"num\">Thành tiền</th></tr></thead>");
+        sb.append("<tbody>");
+
+        List<ChiTietDonHang> items = donHang.getChiTietDonHangs();
+        BigDecimal tongTienHang = BigDecimal.ZERO;
+
+        if (items != null) {
+            for (ChiTietDonHang ct : items) {
+                String ten = ct.getSanPham() != null ? ct.getSanPham().getTenSanPham() : "Sản phẩm";
+                int soLuong = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+                BigDecimal donGia = ct.getDonGiaTaiThoiDiem() != null ? ct.getDonGiaTaiThoiDiem() : BigDecimal.ZERO;
+                BigDecimal thanhTien = donGia.multiply(BigDecimal.valueOf(soLuong));
+                tongTienHang = tongTienHang.add(thanhTien);
+
+                sb.append("<tr>");
+                sb.append("<td>").append(esc(truncate(ten, 60))).append("</td>");
+                sb.append("<td class=\"num\">").append(soLuong).append("</td>");
+                sb.append("<td class=\"num\">").append(formatTien(donGia)).append("</td>");
+                sb.append("<td class=\"num\">").append(formatTien(thanhTien)).append("</td>");
+                sb.append("</tr>");
+            }
+        }
+        sb.append("</tbody></table>");
+
+        // ── Tổng kết ─────────────────────────────────────────────────────
+        BigDecimal tongThanhToan = donHang.getTongTien() != null ? donHang.getTongTien() : tongTienHang;
+
+        sb.append("<div class=\"tong-ket\">");
+        sb.append("<p>Tổng tiền hàng: ").append(formatTien(tongTienHang)).append(" đ</p>");
+
+        if (donHang.getMaGiamGia() != null) {
+            sb.append("<p>Mã giảm giá áp dụng: ").append(esc(donHang.getMaGiamGia().getMaCode())).append("</p>");
+        } else if (donHang.getVoucherKhachHang() != null) {
+            sb.append("<p>Voucher áp dụng: ")
+                    .append(esc(donHang.getVoucherKhachHang().getTenVoucher())).append("</p>");
+        }
+
+        if (donHang.getSoTienCoc() != null && donHang.getSoTienCoc().compareTo(BigDecimal.ZERO) > 0) {
+            sb.append("<p>Đã đặt cọc: ").append(formatTien(donHang.getSoTienCoc())).append(" đ</p>");
+            sb.append("<p>Còn lại phải thanh toán: ")
+                    .append(formatTien(tongThanhToan.subtract(donHang.getSoTienCoc()))).append(" đ</p>");
+        }
+
+        sb.append("<p class=\"tong-thanh-toan\">TỔNG THANH TOÁN: ").append(formatTien(tongThanhToan)).append(" đ</p>");
+        sb.append("</div>");
+
+        if (donHang.getGhiChu() != null && !donHang.getGhiChu().isBlank()) {
+            sb.append("<h3>Ghi chú đơn hàng</h3>");
+            sb.append("<p>").append(esc(truncate(donHang.getGhiChu(), 300))).append("</p>");
+        }
+
+        sb.append("<p class=\"footer\">Cảm ơn quý khách đã tin tưởng và ủng hộ Chocopine Bakery!</p>");
+
+        sb.append("</body></html>");
+        return sb.toString();
+    }
+
+    private String css() {
+        return "@page { size: A4; margin: 50px; } "
+                + "body { font-family: '" + FONT_FAMILY + "'; font-size: 11px; color: #222; } "
+                + "h1 { text-align: center; font-size: 18px; margin-bottom: 4px; } "
+                + "h2 { text-align: center; font-size: 13px; margin-top: 0; margin-bottom: 20px; } "
+                + "h3 { font-size: 12px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; } "
+                + "p { margin: 3px 0; } "
+                + "table.items { width: 100%; border-collapse: collapse; margin: 12px 0; } "
+                + "table.items th, table.items td { border: 1px solid #999; padding: 5px 8px; } "
+                + "table.items th { background: #f2f2f2; text-align: left; } "
+                + "table.items th.num, table.items td.num { text-align: right; } "
+                + "div.tong-ket { text-align: right; margin-top: 10px; } "
+                + "p.tong-thanh-toan { font-weight: bold; font-size: 13px; margin-top: 8px; } "
+                + "p.footer { text-align: center; margin-top: 24px; font-size: 10px; color: #555; }";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────
     private static String nvl(String s) {
         return (s == null || s.isBlank()) ? "—" : s;
     }
@@ -196,136 +229,12 @@ public class InvoicePdfService {
         return s.length() <= maxLen ? s : s.substring(0, maxLen - 1) + "…";
     }
 
-    /**
-     * Lớp nội bộ quản lý "con trỏ" vẽ trên trang PDF hiện tại: vị trí Y, tự
-     * động ngắt trang mới khi hết chỗ (checkPageBreak), tự mở/đóng
-     * PDPageContentStream tương ứng khi sang trang.
-     */
-    private static class Trang {
-        private final PDDocument document;
-        private PDPage page;
-        private PDPageContentStream stream;
-        private float y;
-
-        Trang(PDDocument document) throws IOException {
-            this.document = document;
-            newPage();
-        }
-
-        private void newPage() throws IOException {
-            page = new PDPage(PDRectangle.A4);
-            document.addPage(page);
-            stream = new PDPageContentStream(document, page);
-            y = PAGE_HEIGHT - MARGIN;
-        }
-
-        void checkPageBreak(float neededSpace) throws IOException {
-            if (y - neededSpace < MARGIN) {
-                stream.close();
-                newPage();
-            }
-        }
-
-        void writeLeft(PDFont font, float size, String text) throws IOException {
-            checkPageBreak(18);
-            stream.beginText();
-            stream.setFont(font, size);
-            stream.newLineAtPosition(MARGIN, y);
-            stream.showText(text);
-            stream.endText();
-            y -= (size + 6);
-        }
-
-        void writeRight(PDFont font, float size, String text) throws IOException {
-            checkPageBreak(18);
-            float textWidth = font.getStringWidth(text) / 1000 * size;
-            float x = PAGE_WIDTH - MARGIN - textWidth;
-            stream.beginText();
-            stream.setFont(font, size);
-            stream.newLineAtPosition(x, y);
-            stream.showText(text);
-            stream.endText();
-            y -= (size + 6);
-        }
-
-        void writeCentered(PDFont font, float size, String text) throws IOException {
-            checkPageBreak(18);
-            float textWidth = font.getStringWidth(text) / 1000 * size;
-            float x = (PAGE_WIDTH - textWidth) / 2;
-            stream.beginText();
-            stream.setFont(font, size);
-            stream.newLineAtPosition(x, y);
-            stream.showText(text);
-            stream.endText();
-            y -= (size + 6);
-        }
-
-        void drawLine() throws IOException {
-            stream.moveTo(MARGIN, y);
-            stream.lineTo(PAGE_WIDTH - MARGIN, y);
-            stream.stroke();
-        }
-
-        void drawTableHeader(PDFont fontBold) throws IOException {
-            stream.beginText();
-            stream.setFont(fontBold, 11);
-            stream.newLineAtPosition(COL_TEN, y);
-            stream.showText("Sản phẩm");
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(fontBold, 11);
-            stream.newLineAtPosition(COL_SL, y);
-            stream.showText("SL");
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(fontBold, 11);
-            stream.newLineAtPosition(COL_DON_GIA, y);
-            stream.showText("Đơn giá");
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(fontBold, 11);
-            stream.newLineAtPosition(COL_THANH_TIEN, y);
-            stream.showText("Thành tiền");
-            stream.endText();
-
-            y -= 8;
-            drawLine();
-            y -= 18;
-        }
-
-        void drawTableRow(PDFont font, String ten, String soLuong, String donGia, String thanhTien) throws IOException {
-            stream.beginText();
-            stream.setFont(font, 10);
-            stream.newLineAtPosition(COL_TEN, y);
-            stream.showText(ten);
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(font, 10);
-            stream.newLineAtPosition(COL_SL, y);
-            stream.showText(soLuong);
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(font, 10);
-            stream.newLineAtPosition(COL_DON_GIA, y);
-            stream.showText(donGia);
-            stream.endText();
-
-            stream.beginText();
-            stream.setFont(font, 10);
-            stream.newLineAtPosition(COL_THANH_TIEN, y);
-            stream.showText(thanhTien);
-            stream.endText();
-
-            y -= 20;
-        }
-
-        void close() throws IOException {
-            stream.close();
-        }
+    /** Escape các ký tự đặc biệt HTML để tránh vỡ layout khi dữ liệu chứa &lt; &gt; & "... */
+    private static String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 }
