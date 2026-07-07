@@ -8,6 +8,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class SanPhamDto {
 
@@ -76,4 +77,11 @@ public class SanPhamDto {
 
         private Integer nguongCanhBao;
     }
+    // Thêm class này vào bên trong public class SanPhamDto { ... }
+
+@Data
+public static class DetailResponse {
+    private Response thongTinSanPham;         // Chi tiết chiếc bánh đang xem
+    private List<Response> sanPhamGoiY;       // 4 chiếc bánh gợi ý cùng loại
+}
 }
