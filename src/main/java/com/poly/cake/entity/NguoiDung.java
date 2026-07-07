@@ -13,6 +13,11 @@ import java.time.LocalDateTime;
 @Builder
 public class NguoiDung {
 
+    // Hậu tố email nội bộ (giả) cấp cho tài khoản đăng ký qua OTP SĐT, vì
+    // cột email là NOT NULL UNIQUE. Dùng chung giữa AuthService (khi tạo)
+    // và HoSoService (khi cần ẩn đi, không hiển thị cho người dùng thấy).
+    public static final String PHONE_EMAIL_SUFFIX = "@phone.chocopine.local";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,6 +47,11 @@ public class NguoiDung {
     private String maOtp;
 
     private LocalDateTime otpHetHan;
+
+    // Liên kết tài khoản Google (Google "sub" - định danh duy nhất, không đổi theo email)
+    // Null với tài khoản đăng ký thường (email/mật khẩu hoặc OTP SĐT)
+    @Column(name = "google_id", unique = true, columnDefinition = "NVARCHAR(255)")
+    private String googleId;
 
     private LocalDateTime ngayTao;
 

@@ -45,6 +45,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
                 .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/accessories/**", "/ws-bakery/**").permitAll()
 
+                        // T070 – Validate mã giảm giá/voucher trước khi đặt hàng (chỉ khách đã đăng nhập)
+                        .requestMatchers("/api/v1/vouchers/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
                         // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
                         .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")

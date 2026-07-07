@@ -10,6 +10,7 @@ import com.poly.cake.entity.GioHang;
 import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.ThanhToan;
 import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.entity.VoucherKhachHang;
 import com.poly.cake.exception.BusinessException;
@@ -33,8 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,6 +69,10 @@ public class OrderService {
 
     // T055 – Validator thiết kế bánh 3D
     private final CakeDesignValidator cakeDesignValidator;
+
+    // T072 – Gửi email xác nhận đơn hàng (kèm PDF hóa đơn) + email hủy đơn/hoàn tiền
+    private final EmailService emailService;
+    private final InvoicePdfService invoicePdfService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -208,6 +215,21 @@ public class OrderService {
                 : "TING TING! Có đơn hàng mới được đặt: HD-" + savedDonHang.getId();
         notificationService.notifyNewOrderToAdmins(loiNhanAdmin);
 
+        // ═══════════════════════════════════════════════════════════════
+        // T072 – Đặt hàng thành công → tự động gửi email xác nhận kèm PDF
+        // hóa đơn cho khách. Đây là hành động "best-effort" đi kèm: nếu gửi
+        // email thất bại (SMTP lỗi, mạng chập chờn...) thì KHÔNG được phép
+        // làm rollback cả giao dịch đặt hàng chính, chỉ log lại lỗi để
+        // theo dõi/gửi lại thủ công sau.
+        // ═══════════════════════════════════════════════════════════════
+        try {
+            byte[] pdfHoaDon = invoicePdfService.generateInvoicePdf(savedDonHang);
+            emailService.sendOrderConfirmationEmail(
+                    khachHang.getEmail(), khachHang.getHoTen(), "HD-" + savedDonHang.getId(), pdfHoaDon);
+        } catch (Exception e) {
+            log.error("Gửi email xác nhận đơn hàng HD-{} thất bại: {}", savedDonHang.getId(), e.getMessage(), e);
+        }
+
         return mapToResponseDto(savedDonHang);
     }
 
@@ -243,6 +265,24 @@ public class OrderService {
         }
 
         return mapToResponseDto(donHang);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 4.1. T072 – TẢI LẠI PDF HÓA ĐƠN CỦA 1 ĐƠN HÀNG (bổ trợ cho trang Lịch sử đơn)
+    // Dùng chung điều kiện phân quyền với getOrderById: khách chỉ xem được đơn của
+    // chính mình, Admin/NhanVien xem được tất cả.
+    // ═══════════════════════════════════════════════════════════════════════════
+    public byte[] getInvoicePdf(Long id, String email, String role) {
+        DonHang donHang = donHangRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + id));
+
+        if ("ROLE_KHACH_HANG".equals(role) || "KHACH_HANG".equals(role)) {
+            if (donHang.getKhachHang() == null || !donHang.getKhachHang().getEmail().equals(email)) {
+                throw new ForbiddenException("Bạn không có quyền xem hóa đơn của đơn hàng này!");
+            }
+        }
+
+        return invoicePdfService.generateInvoicePdf(donHang);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -303,9 +343,17 @@ public class OrderService {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 6. HỦY ĐƠN HÀNG (Khách tự hủy)
+    // T072: Kiểm tra điều kiện hủy + hoàn tiền cọc/thanh toán nếu có
     // ═══════════════════════════════════════════════════════════════════════════
+    // Các trạng thái mà khách còn được QUYỀN tự hủy đơn: đơn còn đang chờ xác nhận
+    // hoặc đã xác nhận nhưng bếp CHƯA bắt tay vào làm. Một khi đơn đã DANG_LAM trở
+    // đi (bếp đã dùng nguyên liệu/nhân công) thì không cho tự hủy nữa, khách phải
+    // liên hệ trực tiếp cửa hàng/admin để xử lý.
+    private static final EnumSet<TrangThaiDonHang> TRANG_THAI_CON_DUOC_TU_HUY = EnumSet.of(
+            TrangThaiDonHang.CHO_XAC_NHAN, TrangThaiDonHang.DA_XAC_NHAN);
+
     @Transactional
-    public void cancelOrder(Long id, String emailNguoiDung) {
+    public OrderDto.Response cancelOrder(Long id, String emailNguoiDung) {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
                 .orElseThrow(() -> new BusinessException("Tài khoản không hợp lệ."));
 
@@ -313,14 +361,70 @@ public class OrderService {
                 .orElseThrow(() -> new ForbiddenException(
                         "Đơn hàng không thuộc quyền sở hữu của bạn hoặc không tồn tại."));
 
-        // Dùng toán tử == để so sánh Enum
-        if (donHang.getTrangThai() != TrangThaiDonHang.CHO_XAC_NHAN) {
-            throw new BusinessException("Đơn hàng đã được xử lý, không thể tự hủy vào lúc này!");
+        TrangThaiDonHang trangThaiHienTai = donHang.getTrangThai();
+
+        // ── BƯỚC 1: Kiểm tra điều kiện hủy ────────────────────────────────
+        if (!TRANG_THAI_CON_DUOC_TU_HUY.contains(trangThaiHienTai)) {
+            throw new BusinessException(
+                    "Đơn hàng đang ở trạng thái \"" + trangThaiHienTai.name() +
+                            "\", đã được cửa hàng xử lý nên không thể tự hủy vào lúc này. " +
+                            "Vui lòng liên hệ cửa hàng nếu cần hỗ trợ thêm!");
         }
 
-        donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
-        donHang.setLyDoHuy("Khách hàng tự hủy trên web");
-        donHangRepository.save(donHang);
+        // ── BƯỚC 2: Kiểm tra xem đơn đã thanh toán/đặt cọc trước đó chưa ──
+        // Nếu có bản ghi ThanhToan với trạng thái THANH_CONG (khách đã chuyển khoản
+        // qua SePay hoặc đã đặt cọc) thì bắt buộc phải hoàn tiền khi hủy.
+        Optional<ThanhToan> thanhToanOpt = thanhToanRepository.findByDonHang(donHang);
+        boolean daThanhToan = thanhToanOpt.isPresent() && "THANH_CONG".equals(thanhToanOpt.get().getTrangThai());
+        BigDecimal soTienHoan = null;
+
+        if (daThanhToan) {
+            ThanhToan thanhToan = thanhToanOpt.get();
+            soTienHoan = thanhToan.getSoTien();
+
+            // Đánh dấu giao dịch đã được hoàn tiền (hoàn tiền thủ công qua chuyển khoản
+            // ngược - hệ thống chưa tích hợp cổng hoàn tiền tự động của SePay/VNPay).
+            thanhToan.setTrangThai("DA_HOAN_TIEN");
+            thanhToanRepository.save(thanhToan);
+
+            // Đơn đã thanh toán thành công nghĩa là lúc trước đã bị trừ tồn kho
+            // (xem updatePaymentStatus() -> InventoryService.truTonKhoTheoDonHang),
+            // nên khi hủy + hoàn tiền phải hoàn trả lại đúng số lượng đã trừ.
+            for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
+                sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
+            }
+
+            // Đơn đã có giao dịch tiền -> dùng trạng thái chuyên biệt DA_HOAN_TIEN
+            // (khác DA_HUY thường) để admin dễ lọc/đối soát các đơn cần hoàn tiền.
+            donHang.setTrangThai(TrangThaiDonHang.DA_HOAN_TIEN);
+            donHang.setLyDoHuy("Khách hàng tự hủy trên web - đã hoàn tiền "
+                    + soTienHoan + "đ vào " + LocalDateTime.now());
+        } else {
+            // Chưa phát sinh thanh toán (COD/chưa chuyển khoản) -> hủy bình thường,
+            // không cần hoàn tiền, cũng không cần hoàn kho (vì chưa từng bị trừ).
+            donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
+            donHang.setLyDoHuy("Khách hàng tự hủy trên web");
+        }
+
+        DonHang updatedDonHang = donHangRepository.save(donHang);
+
+        // ── BƯỚC 3: Thông báo real-time cho khách + admin ─────────────────
+        String thongBaoKhach = "Đơn hàng HD-" + id + " của bạn đã được hủy thành công."
+                + (daThanhToan ? " Số tiền " + soTienHoan + "đ sẽ được hoàn lại trong 1-3 ngày làm việc." : "");
+        notificationService.notifyOrderStatusToUser(emailNguoiDung, thongBaoKhach);
+        notificationService.notifyNewOrderToAdmins(
+                "❌ Khách hàng đã tự hủy đơn HD-" + id + (daThanhToan ? " (CẦN ĐỐI SOÁT HOÀN TIỀN)" : ""));
+
+        // ── BƯỚC 4: Gửi email xác nhận hủy đơn (best-effort) ──────────────
+        try {
+            emailService.sendOrderCancellationEmail(
+                    khachHang.getEmail(), khachHang.getHoTen(), "HD-" + id,
+                    updatedDonHang.getLyDoHuy(), soTienHoan);
+        } catch (Exception e) {
+            log.error("Gửi email hủy đơn HD-{} thất bại: {}", id, e.getMessage(), e);
+        }
+
+        return mapToResponseDto(updatedDonHang);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

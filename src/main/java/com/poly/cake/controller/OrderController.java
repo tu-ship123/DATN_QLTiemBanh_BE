@@ -87,12 +87,13 @@ public class OrderController {
     }
 
     // 6. API USER TỰ HỦY ĐƠN HÀNG - Chỉ Khách hàng mới được tự hủy đơn của mình
+    // T072: Service tự kiểm tra điều kiện hủy + tự hoàn tiền cọc/thanh toán nếu có
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('KHACH_HANG')")
     public ResponseEntity<?> cancelOrder(@PathVariable Long id, Authentication authentication) {
         String email = authentication.getName();
-        orderService.cancelOrder(id, email);
-        return ResponseEntity.ok("Hủy đơn hàng thành công!");
+        OrderDto.Response response = orderService.cancelOrder(id, email);
+        return ResponseEntity.ok(response);
     }
 
     // 7. API LẤY DỮ LIỆU THIẾT KẾ 3D
@@ -102,5 +103,25 @@ public class OrderController {
             description = "Trả về cấu trúc JSON đầy đủ để Frontend render Three.js popup")
     public ResponseEntity<?> getOrder3DDesign(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.get3DCakeDesign(id));
+    }
+
+    // 8. API TẢI LẠI PDF HÓA ĐƠN CỦA ĐƠN HÀNG (T072)
+    // Dùng cho trang "Lịch sử đơn hàng" của khách - khách có thể tải lại hóa đơn
+    // bất kỳ lúc nào mà không cần lục lại email cũ.
+    @GetMapping("/{id}/invoice")
+    @PreAuthorize("hasAnyRole('KHACH_HANG', 'ADMIN', 'NHAN_VIEN')")
+    @Operation(summary = "Tải PDF hóa đơn của đơn hàng",
+            description = "Sinh lại file PDF hóa đơn ngay tại thời điểm gọi API (không lưu file cố định)")
+    public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long id, Authentication authentication) {
+        String email = authentication.getName();
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
+
+        byte[] pdf = orderService.getInvoicePdf(id, email, role);
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"HoaDon-HD-" + id + ".pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 }

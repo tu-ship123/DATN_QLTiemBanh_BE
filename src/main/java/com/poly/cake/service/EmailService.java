@@ -1,16 +1,27 @@
 package com.poly.cake.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
     private final JavaMailSender mailSender;
+
+    private static final DecimalFormat TIEN_FORMAT = new DecimalFormat("#,##0");
 
     // ✅ Gửi OTP quên mật khẩu
     public void sendPasswordResetOtp(String toEmail, String otp) {
@@ -79,6 +90,73 @@ public class EmailService {
                 "Vì lý do bảo mật, vui lòng đăng nhập và đổi mật khẩu ngay trong lần đầu tiên sử dụng hệ thống.\n\n" +
                 "Trân trọng,\nBan quản trị PolyCake");
 
+        mailSender.send(message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T072 – Gửi email xác nhận đặt hàng THÀNH CÔNG, đính kèm PDF hóa đơn.
+    // Dùng MimeMessage (thay vì SimpleMailMessage) vì cần đính kèm file PDF.
+    // ═══════════════════════════════════════════════════════════════════
+    public void sendOrderConfirmationEmail(String toEmail, String hoTen, String maDonHang,
+                                            byte[] pdfHoaDon) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            // "true" = multipart (bắt buộc để có thể đính kèm file)
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject("Xác nhận đặt hàng thành công - " + maDonHang + " - Chocopine");
+
+            String noiDung =
+                    "Xin chào " + (hoTen != null ? hoTen : "quý khách") + ",\n\n" +
+                    "Cảm ơn bạn đã đặt hàng tại Chocopine! 🎂\n\n" +
+                    "Đơn hàng " + maDonHang + " của bạn đã được ghi nhận thành công và đang chờ " +
+                    "cửa hàng xác nhận. Chúng tôi đã đính kèm hóa đơn chi tiết (PDF) trong email này, " +
+                    "bạn vui lòng lưu lại để đối chiếu khi cần.\n\n" +
+                    "Bạn có thể theo dõi trạng thái đơn hàng bất kỳ lúc nào trong mục " +
+                    "\"Đơn hàng của tôi\" trên website.\n\n" +
+                    "Trân trọng,\nĐội ngũ Chocopine 🍰";
+            helper.setText(noiDung, false);
+
+            if (pdfHoaDon != null && pdfHoaDon.length > 0) {
+                helper.addAttachment("HoaDon-" + maDonHang + ".pdf", new ByteArrayResource(pdfHoaDon));
+            }
+
+            mailSender.send(mimeMessage);
+        } catch (MessagingException e) {
+            // Gửi email chỉ là hành động "best-effort" đi kèm, KHÔNG được phép làm
+            // rollback giao dịch đặt hàng chính -> chỉ log lỗi, để caller tự quyết định.
+            log.error("Gửi email xác nhận đơn hàng {} tới {} thất bại: {}", maDonHang, toEmail, e.getMessage(), e);
+            throw new RuntimeException("Gửi email xác nhận đơn hàng thất bại: " + e.getMessage(), e);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T072 – Gửi email thông báo khách đã hủy đơn thành công, kèm thông tin
+    // hoàn tiền (nếu đơn đã thanh toán/đặt cọc trước đó).
+    // ═══════════════════════════════════════════════════════════════════
+    public void sendOrderCancellationEmail(String toEmail, String hoTen, String maDonHang,
+                                            String lyDoHuy, BigDecimal soTienHoan) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Xác nhận hủy đơn hàng " + maDonHang + " - Chocopine");
+
+        boolean coHoanTien = soTienHoan != null && soTienHoan.compareTo(BigDecimal.ZERO) > 0;
+        String phanHoanTien = coHoanTien
+                ? "\n💰 Số tiền hoàn lại: " + TIEN_FORMAT.format(soTienHoan) + "đ\n" +
+                  "   Chúng tôi sẽ hoàn tiền về phương thức thanh toán ban đầu của bạn trong vòng " +
+                  "1-3 ngày làm việc. Nếu quá thời gian trên mà chưa nhận được, vui lòng liên hệ " +
+                  "hotline để được hỗ trợ.\n"
+                : "\nĐơn hàng này chưa phát sinh thanh toán nên không có khoản tiền nào cần hoàn lại.\n";
+
+        message.setText(
+                "Xin chào " + (hoTen != null ? hoTen : "quý khách") + ",\n\n" +
+                "Đơn hàng " + maDonHang + " của bạn đã được hủy thành công theo yêu cầu.\n\n" +
+                "Lý do hủy: " + (lyDoHuy != null ? lyDoHuy : "Khách hàng tự hủy") + "\n" +
+                phanHoanTien + "\n" +
+                "Nếu đây không phải yêu cầu của bạn, vui lòng liên hệ Chocopine ngay để được hỗ trợ.\n\n" +
+                "Trân trọng,\nĐội ngũ Chocopine 🍰"
+        );
         mailSender.send(message);
     }
 }

@@ -12,6 +12,9 @@ import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.NhatKyHeThongRepository;
 import com.poly.cake.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,11 +23,17 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -38,6 +47,24 @@ public class AuthService {
     private final RedisTokenService redisTokenService;
     private final JavaMailSender mailSender;
     private final EmailService emailService;
+    private final SmsService smsService;
+    private final StringRedisTemplate redisTemplate;
+    private final RestTemplate restTemplate;
+
+    @Value("${google.client-id}")
+    private String googleClientId;
+
+    // Hậu tố email giả (nội bộ) cấp cho tài khoản đăng ký bằng OTP SĐT, vì
+    // cột email trong DB đang là NOT NULL UNIQUE và toàn bộ hệ thống hiện
+    // dùng email làm định danh đăng nhập (JWT subject). Email này KHÔNG gửi
+    // cho người dùng và không dùng để đăng nhập bằng mật khẩu.
+    private static final String PHONE_EMAIL_SUFFIX = "@phone.chocopine.local";
+
+    // Tiền tố key Redis lưu OTP đăng ký SĐT, TTL 5 phút
+    private static final String OTP_REGISTER_PREFIX = "otp:register:";
+    private static final long OTP_TTL_MINUTES = 5;
+    // Giới hạn gửi lại OTP: tối thiểu 60 giây / lần để tránh spam SMS
+    private static final long OTP_RESEND_COOLDOWN_SECONDS = 60;
 
     // [SỬA] Dùng SecureRandom thay cho Random để tạo OTP an toàn hơn
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -120,7 +147,6 @@ public class AuthService {
         response.setRefreshToken(refreshToken);
         return response;
     }
-
     // T009: Làm mới Access Token (Rotate Strategy)
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
@@ -213,5 +239,207 @@ public class AuthService {
         user.setMaOtp(null);
         user.setOtpHetHan(null);
         nguoiDungRepository.save(user);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T065 - Bước 1: Gửi mã OTP đăng ký bằng số điện thoại
+    // ═══════════════════════════════════════════════════════════════════
+    @Transactional(readOnly = true)
+    public void sendRegisterOtp(SendPhoneOtpRequest request) {
+        String phone = request.getSoDienThoai();
+
+        // Số điện thoại đã có tài khoản rồi thì không cho đăng ký lại
+        if (nguoiDungRepository.existsBySoDienThoai(phone)) {
+            throw new BusinessException("Số điện thoại này đã được đăng ký tài khoản!");
+        }
+
+        String cooldownKey = OTP_REGISTER_PREFIX + phone + ":cooldown";
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+            throw new BusinessException("Bạn vừa yêu cầu mã OTP, vui lòng đợi ít phút rồi thử lại!");
+        }
+
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+        String otpKey = OTP_REGISTER_PREFIX + phone;
+
+        redisTemplate.opsForValue().set(otpKey, otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(cooldownKey, "1", OTP_RESEND_COOLDOWN_SECONDS, TimeUnit.SECONDS);
+
+        smsService.sendOtp(phone, otp);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T065 - Bước 2: Xác thực OTP + tạo tài khoản, tự động đăng nhập luôn
+    // ═══════════════════════════════════════════════════════════════════
+    @Transactional
+    public AuthResponse verifyRegisterOtp(VerifyPhoneOtpRequest request) {
+        String phone = request.getSoDienThoai();
+        String otpKey = OTP_REGISTER_PREFIX + phone;
+
+        String savedOtp = redisTemplate.opsForValue().get(otpKey);
+        if (savedOtp == null) {
+            throw new BusinessException("Mã OTP đã hết hạn hoặc chưa được gửi, vui lòng yêu cầu mã mới!");
+        }
+        if (!savedOtp.equals(request.getOtp())) {
+            throw new BusinessException("Mã OTP không chính xác!");
+        }
+
+        // Dùng 1 lần xong xóa ngay, tránh bị lợi dụng gọi lại API nhiều lần
+        redisTemplate.delete(otpKey);
+
+        // Kiểm tra lại lần cuối (chống trường hợp 2 request chạy song song
+        // cùng đăng ký 1 số điện thoại trong lúc chờ xác thực OTP)
+        if (nguoiDungRepository.existsBySoDienThoai(phone)) {
+            throw new BusinessException("Số điện thoại này đã được đăng ký tài khoản!");
+        }
+
+        String hoTen = (request.getHoTen() == null || request.getHoTen().isBlank())
+                ? "Khách hàng"
+                : request.getHoTen();
+
+        // Email nội bộ (không hiển thị cho người dùng) để thỏa ràng buộc
+        // NOT NULL UNIQUE của cột email — tài khoản này chỉ đăng nhập lại
+        // qua OTP SĐT, không dùng luồng đăng nhập email/mật khẩu.
+        String internalEmail = phone + PHONE_EMAIL_SUFFIX;
+
+        String rawPassword = (request.getMatKhau() == null || request.getMatKhau().isBlank())
+                ? UUID.randomUUID().toString()
+                : request.getMatKhau();
+
+        NguoiDung user = NguoiDung.builder()
+                .hoTen(hoTen)
+                .email(internalEmail)
+                .matKhau(passwordEncoder.encode(rawPassword))
+                .soDienThoai(phone)
+                .quyen("KHACH_HANG")
+                .trangThai("HOAT_DONG")
+                .build();
+
+        nguoiDungRepository.save(user);
+
+        return issueTokensAndLog(user, "DANG_KY_OTP_SDT");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T065 - Đăng nhập / Đăng ký bằng Google OAuth2
+    // Lần đầu (chưa có tài khoản khớp email/googleId) -> tự tạo tài khoản
+    // Các lần sau -> tìm thấy tài khoản cũ -> đăng nhập thẳng luôn
+    // ═══════════════════════════════════════════════════════════════════
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        Map<String, Object> payload = verifyGoogleIdToken(request.getIdToken());
+
+        String googleId = (String) payload.get("sub");
+        String email = (String) payload.get("email");
+        String emailVerified = String.valueOf(payload.get("email_verified"));
+        String name = (String) payload.get("name");
+        String picture = (String) payload.get("picture");
+
+        if (googleId == null || email == null) {
+            throw new BusinessException("Không lấy được thông tin tài khoản Google!");
+        }
+        if (!"true".equalsIgnoreCase(emailVerified)) {
+            throw new BusinessException("Email Google chưa được xác thực!");
+        }
+
+        // 1. Ưu tiên tìm theo googleId (định danh không đổi, kể cả khi đổi email)
+        Optional<NguoiDung> userOpt = nguoiDungRepository.findByGoogleId(googleId);
+
+        // 2. Chưa liên kết googleId -> thử tìm theo email (VD: user từng đăng
+        //    ký thường bằng đúng email đó) rồi liên kết googleId vào luôn
+        if (userOpt.isEmpty()) {
+            userOpt = nguoiDungRepository.findByEmail(email);
+        }
+
+        NguoiDung user;
+        String hanhDong;
+
+        if (userOpt.isPresent()) {
+            // ĐÃ CÓ TÀI KHOẢN -> chỉ đăng nhập, không tạo mới
+            user = userOpt.get();
+            if (user.getGoogleId() == null) {
+                user.setGoogleId(googleId);
+            }
+            if (user.getAnhDaiDien() == null && picture != null) {
+                user.setAnhDaiDien(picture);
+            }
+            nguoiDungRepository.save(user);
+            hanhDong = "DANG_NHAP_GOOGLE";
+        } else {
+            // CHƯA CÓ TÀI KHOẢN -> lần đầu bấm "Đăng nhập Google" sẽ tự tạo mới
+            user = NguoiDung.builder()
+                    .hoTen((name == null || name.isBlank()) ? "Khách hàng" : name)
+                    .email(email)
+                    .matKhau(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .anhDaiDien(picture)
+                    .googleId(googleId)
+                    .quyen("KHACH_HANG")
+                    .trangThai("HOAT_DONG")
+                    .build();
+            nguoiDungRepository.save(user);
+            hanhDong = "DANG_KY_GOOGLE";
+        }
+
+        // Áp dụng chung điều kiện trạng thái tài khoản như đăng nhập thường
+        if ("BI_KHOA".equals(user.getTrangThai())) {
+            throw new BusinessException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ!");
+        }
+        if ("NGUNG_HOAT_DONG".equals(user.getTrangThai())) {
+            throw new BusinessException("Tài khoản của bạn đã ngừng hoạt động!");
+        }
+
+        return issueTokensAndLog(user, hanhDong);
+    }
+
+    // Gọi endpoint tokeninfo chính thức của Google để xác thực chữ ký +
+    // hạn dùng của idToken, đồng thời kiểm tra "aud" (Client ID) để chống
+    // trường hợp kẻ tấn công gửi lên 1 idToken hợp lệ nhưng được cấp cho
+    // một ứng dụng Google khác (audience confusion / token substitution).
+    private Map<String, Object> verifyGoogleIdToken(String idToken) {
+        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+        Map<String, Object> payload;
+        try {
+            payload = restTemplate.getForObject(url, Map.class);
+        } catch (HttpClientErrorException e) {
+            throw new BusinessException("Google idToken không hợp lệ hoặc đã hết hạn!");
+        } catch (Exception e) {
+            log.error("Lỗi khi xác thực Google idToken: {}", e.getMessage());
+            throw new BusinessException("Không thể xác thực tài khoản Google, vui lòng thử lại!");
+        }
+
+        if (payload == null) {
+            throw new BusinessException("Google idToken không hợp lệ!");
+        }
+
+        Object aud = payload.get("aud");
+        if (aud == null || !googleClientId.equals(aud.toString())) {
+            throw new BusinessException("idToken không được cấp cho ứng dụng này!");
+        }
+
+        return payload;
+    }
+
+    // Gom logic tạo JWT + lưu refresh token + ghi nhật ký, dùng chung cho
+    // login thường, đăng ký OTP SĐT và đăng nhập Google
+    private AuthResponse issueTokensAndLog(NguoiDung user, String hanhDong) {
+        String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getQuyen());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+
+        lamMoiTokenRepository.deleteByNguoiDung(user);
+        LamMoiToken rtEntity = LamMoiToken.builder()
+                .nguoiDung(user)
+                .token(refreshToken)
+                .ngayHetHan(LocalDateTime.now().plusDays(7))
+                .build();
+        lamMoiTokenRepository.save(rtEntity);
+
+        nhatKyHeThongRepository.save(NhatKyHeThong.builder()
+                .nguoiDung(user)
+                .hanhDong(hanhDong)
+                .build());
+
+        AuthResponse response = new AuthResponse();
+        response.setAccessToken(accessToken);
+        response.setRefreshToken(refreshToken);
+        return response;
     }
 }
