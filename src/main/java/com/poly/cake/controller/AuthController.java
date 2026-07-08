@@ -67,19 +67,6 @@ public class AuthController {
         return ResponseEntity.ok("Đặt lại mật khẩu thành công!");
     }
 
-    // T065: Đăng ký OTP SĐT - Bước 1: Gửi mã OTP về số điện thoại
-    @PostMapping("/otp/send")
-    public ResponseEntity<String> sendRegisterOtp(@Valid @RequestBody SendPhoneOtpRequest request) {
-        authService.sendRegisterOtp(request);
-        return ResponseEntity.ok("Mã OTP đã được gửi đến số điện thoại của bạn.");
-    }
-
-    // T065: Đăng ký OTP SĐT - Bước 2: Xác thực OTP -> tạo tài khoản -> tự động đăng nhập
-    @PostMapping("/otp/verify")
-    public ResponseEntity<AuthResponse> verifyRegisterOtp(@Valid @RequestBody VerifyPhoneOtpRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.verifyRegisterOtp(request));
-    }
-
     // T065: Đăng nhập Google OAuth2 - lần đầu tự tạo tài khoản, các lần sau tự đăng nhập
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
