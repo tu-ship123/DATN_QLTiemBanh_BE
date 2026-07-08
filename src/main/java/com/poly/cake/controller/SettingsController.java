@@ -32,21 +32,32 @@ public class SettingsController {
     @PutMapping("/{khoaCauHinh}")
     public ResponseEntity<?> updateSetting(@PathVariable String khoaCauHinh, @Valid @RequestBody SettingRequest request) {
         CauHinhHeThong config = cauHinhHeThongRepository.findByKhoaCauHinh(khoaCauHinh)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình: " + khoaCauHinh));
+                .orElse(null);
 
-        // 1. Lưu lại giá trị cũ trước khi sửa
-        String giaTriCu = config.getGiaTri();
+        String hanhDong = "UPDATE";
+        String giaTriCu = null;
 
-        // 2. Cập nhật giá trị mới
+        if (config == null) {
+            // Tự động tạo cấu hình nếu chưa tồn tại
+            config = new CauHinhHeThong();
+            config.setKhoaCauHinh(khoaCauHinh);
+            hanhDong = "CREATE";
+            giaTriCu = "{}"; // Không có giá trị cũ
+        } else {
+            // Lưu lại giá trị cũ trước khi sửa
+            giaTriCu = "{\"giaTri\": \"" + config.getGiaTri() + "\"}";
+        }
+
+        // Cập nhật giá trị mới
         config.setGiaTri(request.getGiaTri());
         CauHinhHeThong savedConfig = cauHinhHeThongRepository.save(config);
 
-        // 3. Ghi vào sổ Nhật ký hệ thống (Diff JSON Old/New đúng như thẻ Trello yêu cầu)
+        // Ghi vào sổ Nhật ký hệ thống
         NhatKyHeThong log = new NhatKyHeThong();
-        log.setHanhDong("UPDATE");
+        log.setHanhDong(hanhDong);
         log.setTenBang("CAU_HINH_HE_THONG");
         log.setBanGhiId(savedConfig.getId());
-        log.setGiaTriCu("{\"giaTri\": \"" + giaTriCu + "\"}");
+        log.setGiaTriCu(giaTriCu);
         log.setGiaTriMoi("{\"giaTri\": \"" + savedConfig.getGiaTri() + "\"}");
         nhatKyHeThongRepository.save(log);
 

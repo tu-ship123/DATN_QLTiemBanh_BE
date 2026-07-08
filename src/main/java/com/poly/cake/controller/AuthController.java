@@ -86,4 +86,26 @@ public class AuthController {
         return ResponseEntity.ok(authService.loginWithGoogle(request));
     }
 
+    // T091: 2FA TOTP Setup
+    @GetMapping("/totp/setup")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<TotpSetupResponse> setupTotp(Authentication authentication) {
+        return ResponseEntity.ok(authService.setupTotp(authentication.getName()));
+    }
+
+    // T091: 2FA TOTP Verify
+    @PostMapping("/totp/verify")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> verifyTotp(@RequestParam String code, Authentication authentication) {
+        authService.verifyAndEnableTotp(authentication.getName(), code);
+        return ResponseEntity.ok("Xác thực 2 bước đã được kích hoạt thành công!");
+    }
+
+    // T091: 2FA TOTP Disable
+    @PostMapping("/totp/disable")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> disableTotp(Authentication authentication) {
+        authService.disableTotp(authentication.getName());
+        return ResponseEntity.ok("Đã tắt xác thực 2 bước!");
+    }
 }

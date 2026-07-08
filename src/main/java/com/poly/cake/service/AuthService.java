@@ -45,6 +45,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final RedisTokenService redisTokenService;
+    private final TotpService totpService;
     private final JavaMailSender mailSender;
     private final EmailService emailService;
     private final SmsService smsService;
@@ -121,6 +122,16 @@ public class AuthService {
         }
         if (!"HOAT_DONG".equals(user.getTrangThai())) {
             throw new BusinessException("Tài khoản không ở trạng thái hoạt động, vui lòng liên hệ quản trị viên!");
+        }
+
+        // Xử lý 2FA (TOTP)
+        if (Boolean.TRUE.equals(user.getIs2FaEnabled())) {
+            if (request.getTotpCode() == null || request.getTotpCode().isBlank()) {
+                throw new BusinessException("Vui lòng nhập mã xác thực 2 bước (2FA)!");
+            }
+            if (!totpService.verifyCode(user.getTotpSecret(), request.getTotpCode())) {
+                throw new BusinessException("Mã xác thực 2 bước không chính xác!");
+            }
         }
 
         // Tạo JWT
@@ -441,5 +452,64 @@ public class AuthService {
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken);
         return response;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // T091: Thiết lập và xác minh 2FA TOTP
+    // ═══════════════════════════════════════════════════════════════════
+    @Transactional
+    public TotpSetupResponse setupTotp(String email) {
+        NguoiDung user = nguoiDungRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
+
+        if (Boolean.TRUE.equals(user.getIs2FaEnabled())) {
+            throw new BusinessException("Tài khoản đã được bật 2FA từ trước!");
+        }
+
+        String secret = totpService.generateSecret();
+        user.setTotpSecret(secret);
+        nguoiDungRepository.save(user);
+
+        String qrCodeUri = totpService.getQrCodeUri(secret, email);
+
+        TotpSetupResponse response = new TotpSetupResponse();
+        response.setSecret(secret);
+        response.setQrCodeUri(qrCodeUri);
+        return response;
+    }
+
+    @Transactional
+    public void verifyAndEnableTotp(String email, String code) {
+        NguoiDung user = nguoiDungRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
+
+        if (Boolean.TRUE.equals(user.getIs2FaEnabled())) {
+            throw new BusinessException("Tài khoản đã được bật 2FA từ trước!");
+        }
+
+        if (user.getTotpSecret() == null) {
+            throw new BusinessException("Vui lòng thiết lập 2FA trước khi xác minh!");
+        }
+
+        if (!totpService.verifyCode(user.getTotpSecret(), code)) {
+            throw new BusinessException("Mã xác thực không chính xác!");
+        }
+
+        user.setIs2FaEnabled(true);
+        nguoiDungRepository.save(user);
+    }
+
+    @Transactional
+    public void disableTotp(String email) {
+        NguoiDung user = nguoiDungRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
+
+        if (!Boolean.TRUE.equals(user.getIs2FaEnabled())) {
+            throw new BusinessException("Tài khoản chưa bật 2FA!");
+        }
+
+        user.setIs2FaEnabled(false);
+        user.setTotpSecret(null); // Optional: clear secret
+        nguoiDungRepository.save(user);
     }
 }

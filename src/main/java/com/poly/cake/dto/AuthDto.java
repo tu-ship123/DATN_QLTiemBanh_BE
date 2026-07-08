@@ -35,12 +35,20 @@ public class AuthDto {
 
         @NotBlank(message = "Mật khẩu không được để trống")
         private String matKhau;
+
+        private String totpCode;
     }
 
     @Data
     public static class AuthResponse {
         private String accessToken;
         private String refreshToken;
+    }
+
+    @Data
+    public static class TotpSetupResponse {
+        private String secret;
+        private String qrCodeUri;
     }
 
     @Data
