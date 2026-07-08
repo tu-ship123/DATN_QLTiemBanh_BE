@@ -1,33 +1,43 @@
 package com.poly.cake.service;
+
 import com.poly.cake.dto.DoanhThuKenhDto;
+import com.poly.cake.dto.DoiSoatDto;
+import com.poly.cake.dto.HieuSuatNhanVienDto;
 import com.poly.cake.dto.TopSanPhamDto;
 import com.poly.cake.repository.DonHangRepository;
+import com.poly.cake.repository.ThanhToanRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-
 @Service
 public class ReportService {
 
     private final DonHangRepository donHangRepository;
+    private final ThanhToanRepository thanhToanRepository;
 
-    public ReportService(DonHangRepository donHangRepository) {
+    // Inject cả 2 Repository vào chung 1 Constructor
+    public ReportService(DonHangRepository donHangRepository, ThanhToanRepository thanhToanRepository) {
         this.donHangRepository = donHangRepository;
+        this.thanhToanRepository = thanhToanRepository;
     }
 
-    // Lấy API JSON
+    // ==========================================
+    // TASK T082: BÁO CÁO DOANH THU & TOP SẢN PHẨM
+    // ==========================================
+
     public List<DoanhThuKenhDto> getDoanhThuKenh() {
         return donHangRepository.getDoanhThuTheoKenh();
     }
 
     public List<TopSanPhamDto> getTopSanPham() {
-        // Lấy Top 10 sản phẩm
+        // Lấy Top 10 sản phẩm bán chạy nhất
         return donHangRepository.getTopSanPhamBanChay(PageRequest.of(0, 10));
     }
 
@@ -67,5 +77,17 @@ public class ReportService {
             workbook.write(out);
             return new ByteArrayInputStream(out.toByteArray());
         }
+    }
+
+    // ==========================================
+    // TASK T087: ĐỐI SOÁT GIAO DỊCH & HIỆU SUẤT
+    // ==========================================
+
+    public List<HieuSuatNhanVienDto> getHieuSuatNhanVien() {
+        return donHangRepository.getHieuSuatNhanVien();
+    }
+
+    public List<DoiSoatDto> getDanhSachDoiSoat(String maGiaoDich) {
+        return thanhToanRepository.getDanhSachDoiSoat(maGiaoDich);
     }
 }

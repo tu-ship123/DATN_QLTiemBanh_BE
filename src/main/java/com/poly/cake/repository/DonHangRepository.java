@@ -1,6 +1,7 @@
 package com.poly.cake.repository;
 
 import com.poly.cake.dto.DoanhThuKenhDto;
+import com.poly.cake.dto.HieuSuatNhanVienDto;
 import com.poly.cake.dto.TopSanPhamDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
@@ -59,5 +60,12 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
             "GROUP BY sp.id, sp.tenSanPham " +
             "ORDER BY SUM(ct.soLuong) DESC")
     List<TopSanPhamDto> getTopSanPhamBanChay(Pageable pageable);
+
+    @Query("SELECT new com.poly.cake.dto.HieuSuatNhanVienDto(nv.id, nv.hoTen, COUNT(d.id), SUM(d.tongTien)) " +
+            "FROM DonHang d JOIN d.nhanVien nv " +
+            "WHERE d.trangThai = 'HOAN_THANH' " +
+            "GROUP BY nv.id, nv.hoTen " +
+            "ORDER BY SUM(d.tongTien) DESC")
+    List<HieuSuatNhanVienDto> getHieuSuatNhanVien();
 }
 

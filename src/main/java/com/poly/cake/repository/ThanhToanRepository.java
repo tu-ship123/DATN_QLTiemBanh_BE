@@ -1,5 +1,6 @@
 package com.poly.cake.repository;
 
+import com.poly.cake.dto.DoiSoatDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ThanhToan;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,4 +50,11 @@ public interface ThanhToanRepository extends JpaRepository<ThanhToan, Long> {
             @Param("tuThoiDiem") LocalDateTime tuThoiDiem,
             @Param("denThoiDiem") LocalDateTime denThoiDiem
     );
+
+    @Query("SELECT new com.poly.cake.dto.DoiSoatDto(t.donHang.id, t.maGiaoDich, t.hinhThuc, t.soTien, t.trangThai, t.thoiDiemThanhToan) " +
+            "FROM ThanhToan t " +
+            "WHERE t.hinhThuc IN ('VNPAY', 'MOMO') " +
+            "AND (:maGiaoDich IS NULL OR t.maGiaoDich = :maGiaoDich) " +
+            "ORDER BY t.thoiDiemThanhToan DESC")
+    List<DoiSoatDto> getDanhSachDoiSoat(@Param("maGiaoDich") String maGiaoDich);
 }

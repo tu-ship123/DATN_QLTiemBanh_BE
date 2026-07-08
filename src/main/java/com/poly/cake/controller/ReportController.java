@@ -6,9 +6,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.io.ByteArrayInputStream;
 import java.util.Map;
+
 
 
 @RestController
@@ -42,5 +44,16 @@ public class ReportController {
                 .headers(headers)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(in));
+    }
+    // 1. API Hiệu suất nhân viên
+    @GetMapping("/hieu-suat")
+    public ResponseEntity<?> getHieuSuatNhanVien() {
+        return ResponseEntity.ok(reportService.getHieuSuatNhanVien());
+    }
+
+    // 2. API Đối soát giao dịch (Hỗ trợ tìm theo mã ví dụ: ?maGiaoDich=VNP2026...)
+    @GetMapping("/doi-soat")
+    public ResponseEntity<?> getDoiSoatGiaoDich(@RequestParam(required = false) String maGiaoDich) {
+        return ResponseEntity.ok(reportService.getDanhSachDoiSoat(maGiaoDich));
     }
 }
