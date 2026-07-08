@@ -58,6 +58,12 @@ public class DonHang {
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String ghiChu;
 
+    // T080 – Ghi chú nội bộ: chỉ Nhân viên/Bếp xem được qua trang quản trị,
+    // KHÔNG bao giờ trả về cho khách hàng (khác với "ghiChu" ở trên vốn là
+    // ghi chú công khai khách có thể xem lại đơn của mình).
+    @Column(columnDefinition = "NVARCHAR(MAX)")
+    private String ghiChuNoiBo;
+
     private LocalDateTime ngayTao;
 
     private LocalDateTime ngayCapNhat;
@@ -65,6 +71,8 @@ public class DonHang {
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String lyDoHuy;
 
+    // T080 – Thời điểm giao hàng THỰC TẾ, được ghi nhận tự động khi nhân viên
+    // giao hàng quét mã vạch/mã đơn trên bill lúc giao (xem AdminOrderService#scanDelivery)
     private LocalDateTime thoiDiemGiao;
 
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
