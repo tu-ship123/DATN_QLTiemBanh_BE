@@ -72,4 +72,23 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
     // (Loại bỏ các sản phẩm ảo hoặc marker nội bộ như bánh 3D tùy chỉnh)
     @Query("SELECT s FROM SanPham s WHERE s.laNoiBo = false AND s.soLuongTon <= s.nguongCanhBao")
     List<SanPham> findLowStockProducts();
+    
+    // Task 1: Tìm kiếm + Lọc sản phẩm công khai kèm theo Sắp xếp (Sort)
+@Query("SELECT sp FROM SanPham sp WHERE " +
+       "(:keyword IS NULL OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+       "sp.trangThai = 'DANG_BAN' AND " +
+       "(:danhMucId IS NULL OR sp.danhMuc.id = :danhMucId) AND " +
+       "sp.laNoiBo = false")
+List<SanPham> filterPublicProductsWithSort(
+        @Param("keyword") String keyword,
+        @Param("danhMucId") Long danhMucId,
+        org.springframework.data.domain.Sort sort
+);
+
+// Task 2: Lấy top 4 sản phẩm gợi ý (Cùng danh mục, ĐANG_BAN, không nội bộ, khác ID hiện tại)
+@Query("SELECT sp FROM SanPham sp WHERE sp.danhMuc.id = :danhMucId " +
+       "AND sp.trangThai = 'DANG_BAN' " +
+       "AND sp.laNoiBo = false " +
+       "AND sp.id <> :currentProductId")
+List<SanPham> findTop4RelatedProducts(@Param("danhMucId") Long danhMucId, @Param("currentProductId") Long currentProductId);
 }

@@ -296,4 +296,74 @@ public class AdminSanPhamService {
 
         return dto;
     }
+
+    // --- THÊM VÀO SERVICE DÀNH CHO CLIENT ---
+
+// Hàm 1: Phục vụ Task 1 (Lấy danh sách có sắp xếp giá)
+public List<SanPhamDto.Response> getPublicProductsWithSort(String keyword, Long danhMucId, String sortDir) {
+    // Mặc định sắp xếp Tăng dần theo đơn giá
+    org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "donGia");
+    
+    // Nếu truyền vào "desc" thì đổi sang Giảm dần
+    if ("desc".equalsIgnoreCase(sortDir)) {
+        sort = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "donGia");
+    }
+
+    List<SanPham> products = sanPhamRepository.filterPublicProductsWithSort(keyword, danhMucId, sort);
+    
+    // Map thủ công từ Entity sang DTO Response giống như logic cũ của nhóm bạn
+    return products.stream().map(sp -> {
+        SanPhamDto.Response res = new SanPhamDto.Response();
+        res.setId(sp.getId());
+        res.setDanhMucId(sp.getDanhMuc() != null ? sp.getDanhMuc().getId() : null);
+        res.setTenDanhMuc(sp.getDanhMuc() != null ? sp.getDanhMuc().getTenDanhMuc() : null);
+        res.setTenSanPham(sp.getTenSanPham());
+        res.setDonGia(sp.getDonGia());
+        res.setSoLuongTon(sp.getSoLuongTon());
+        res.setAnhSanPham(sp.getAnhSanPham());
+        res.setTrangThai(sp.getTrangThai());
+        res.setMoTa(sp.getMoTa());
+        res.setNgayTao(sp.getNgayTao());
+        res.setNguongCanhBao(sp.getNguongCanhBao());
+        return res;
+    }).collect(java.util.stream.Collectors.toList());
+}
+
+// Hàm 2: Phục vụ Task 2 (Xem chi tiết bánh + 4 sản phẩm gợi ý)
+public SanPhamDto.DetailResponse getProductDetailWithSuggestions(Long id) {
+    // 1. Lấy sản phẩm đang xem, nếu không có thì báo lỗi
+    SanPham currentProduct = sanPhamRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + id));
+
+    // Hàm phụ dùng chung để map Entity -> DTO Response nhanh
+    java.util.function.Function<SanPham, SanPhamDto.Response> mapper = sp -> {
+        SanPhamDto.Response res = new SanPhamDto.Response();
+        res.setId(sp.getId());
+        res.setDanhMucId(sp.getDanhMuc() != null ? sp.getDanhMuc().getId() : null);
+        res.setTenDanhMuc(sp.getDanhMuc() != null ? sp.getDanhMuc().getTenDanhMuc() : null);
+        res.setTenSanPham(sp.getTenSanPham());
+        res.setDonGia(sp.getDonGia());
+        res.setSoLuongTon(sp.getSoLuongTon());
+        res.setAnhSanPham(sp.getAnhSanPham());
+        res.setTrangThai(sp.getTrangThai());
+        res.setMoTa(sp.getMoTa());
+        res.setNgayTao(sp.getNgayTao());
+        res.setNguongCanhBao(sp.getNguongCanhBao());
+        return res;
+    };
+
+    // 2. Tìm danh sách sản phẩm cùng loại gợi ý
+    Long danhMucId = currentProduct.getDanhMuc() != null ? currentProduct.getDanhMuc().getId() : null;
+    List<SanPham> relatedEntities = new java.util.ArrayList<>();
+    if (danhMucId != null) {
+        relatedEntities = sanPhamRepository.findTop4RelatedProducts(danhMucId, id);
+    }
+
+    // 3. Đóng gói dữ liệu vào DTO DetailResponse
+    SanPhamDto.DetailResponse finalResult = new SanPhamDto.DetailResponse();
+    finalResult.setThongTinSanPham(mapper.apply(currentProduct));
+    finalResult.setSanPhamGoiY(relatedEntities.stream().map(mapper).collect(java.util.stream.Collectors.toList()));
+
+    return finalResult;
+}
 }
