@@ -55,6 +55,12 @@ public class NguoiDung {
 
     private LocalDateTime ngayTao;
 
+    @Column(name = "totp_secret", columnDefinition = "NVARCHAR(100)")
+    private String totpSecret;
+
+    @Column(name = "is_2fa_enabled", nullable = false)
+    private Boolean is2FaEnabled = false;
+
     @PrePersist
     protected void onCreate() {
         ngayTao = LocalDateTime.now();
