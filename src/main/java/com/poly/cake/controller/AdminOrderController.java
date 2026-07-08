@@ -85,6 +85,38 @@ public class AdminOrderController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // T080 – GHI CHÚ NỘI BỘ
+    // Nhân viên thêm ghi chú nội bộ → Bếp thấy khi xem đơn hàng ở trang quản
+    // trị, khách hàng KHÔNG thấy (ghi chú nội bộ không có trong API khách hàng).
+    // ─────────────────────────────────────────────────────────────────────────
+    @PutMapping("/{id}/internal-note")
+    @Operation(
+            summary = "Thêm/cập nhật ghi chú nội bộ",
+            description = "Nhân viên hoặc Admin ghi chú nội bộ cho đơn hàng (VD: dặn dò bếp, lưu ý giao hàng...). " +
+                    "Ghi chú này chỉ hiển thị cho Nhân viên/Admin qua trang quản trị, khách hàng không bao giờ thấy được."
+    )
+    public ResponseEntity<?> updateInternalNote(@PathVariable Long id,
+                                                @RequestParam String ghiChuNoiBo,
+                                                Authentication authentication) {
+        return ResponseEntity.ok(adminOrderService.updateInternalNote(id, ghiChuNoiBo, authentication.getName()));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // T080 – BARCODE GIAO HÀNG
+    // Nhân viên giao hàng quét mã bill ("HD-{id}") lúc giao cho khách → đơn tự
+    // động chuyển từ DANG_GIAO sang DA_GIAO, không cần đổi trạng thái thủ công.
+    // ─────────────────────────────────────────────────────────────────────────
+    @PutMapping("/scan-delivery")
+    @Operation(
+            summary = "Quét mã vạch/bill khi giao hàng",
+            description = "Nhân viên giao hàng quét mã bill (mã đơn hàng dạng HD-{id}) khi giao tận nơi cho khách " +
+                    "→ đơn tự động chuyển sang trạng thái DA_GIAO. Chỉ áp dụng cho đơn đang ở trạng thái DANG_GIAO."
+    )
+    public ResponseEntity<?> scanDelivery(@RequestParam String maVach, Authentication authentication) {
+        return ResponseEntity.ok(adminOrderService.scanDelivery(maVach, authentication.getName()));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // T056 – XÁC NHẬN THIẾT KẾ BÁNH 3D
     // Nhân viên nhấn "Xác nhận thiết kế" → Trừ kho phụ kiện + DANG_LAM + báo khách
     // ─────────────────────────────────────────────────────────────────────────

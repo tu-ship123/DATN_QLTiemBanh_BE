@@ -16,6 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,7 +30,14 @@ public class AdminOrderService {
     private final NotificationService notificationService;
     private final PhuKienTrangTriRepository phuKienTrangTriRepository;
 
+    // T080 – Refund: dùng để cập nhật trạng thái bản ghi thanh toán về DA_HOAN_TIEN
+    private final ThanhToanRepository thanhToanRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // T080 – Barcode giao hàng: mã in trên bill có dạng "HD-{id}" (xem mapToResponseDto
+    // / getPrintData -> maDonHang), tái sử dụng cùng quy ước regex với Webhook SePay.
+    private static final Pattern DELIVERY_BARCODE_PATTERN = Pattern.compile("HD-?(\\d+)", Pattern.CASE_INSENSITIVE);
 
     // Dùng Enum thay vì String để đảm bảo Compile-time safety
     private static final List<TrangThaiDonHang> STATUS_FLOW = List.of(
@@ -38,8 +47,12 @@ public class AdminOrderService {
     );
 
     // Dùng EnumSet để tối ưu hóa hiệu suất tìm kiếm
+    // T080: DA_GIAO (đã quét mã giao hàng) cũng coi là kết thúc — tránh trường hợp
+    // STATUS_FLOW.indexOf(DA_GIAO) = -1 khiến changeOrderStatus() hiểu nhầm là
+    // "chưa ở đâu trong luồng" rồi lại cho phép đổi lùi/đổi tiếp sang trạng thái khác.
     private static final EnumSet<TrangThaiDonHang> TERMINAL_STATUSES = EnumSet.of(
-            TrangThaiDonHang.HOAN_THANH, TrangThaiDonHang.DA_HUY, TrangThaiDonHang.DA_HOAN_TIEN
+            TrangThaiDonHang.HOAN_THANH, TrangThaiDonHang.DA_HUY,
+            TrangThaiDonHang.DA_HOAN_TIEN, TrangThaiDonHang.DA_GIAO
     );
 
     public List<OrderDto.Response> getFilteredOrders(String trangThai, String nguonDon, LocalDateTime tuNgay, LocalDateTime denNgay) {
@@ -73,8 +86,37 @@ public class AdminOrderService {
         DonHang donHang = findOrder(id);
         NguoiDung admin = findAdmin(emailAdmin);
 
+        if (lyDo == null || lyDo.trim().isEmpty()) {
+            throw new BusinessException("Bắt buộc phải nhập lý do hoàn tiền!");
+        }
+        if (donHang.getTrangThai() == TrangThaiDonHang.DA_HOAN_TIEN) {
+            throw new BusinessException("Đơn hàng HD-" + id + " đã được hoàn tiền từ trước!");
+        }
+        if (donHang.getTrangThai() == TrangThaiDonHang.DA_HUY) {
+            throw new BusinessException("Đơn hàng HD-" + id + " đã bị hủy, không thể hoàn tiền!");
+        }
+
+        // Ghi nhớ trạng thái trước khi hoàn tiền để biết đơn đã từng bị trừ tồn kho
+        // hay chưa (chỉ các đơn đã qua CHO_XAC_NHAN trở đi mới đã trừ kho).
+        TrangThaiDonHang trangThaiTruocKhiHoan = donHang.getTrangThai();
+
         donHang.setTrangThai(TrangThaiDonHang.DA_HOAN_TIEN);
         donHang.setLyDoHuy("Hoàn tiền: " + lyDo);
+
+        // Đồng bộ bản ghi thanh toán (nếu có) về trạng thái đã hoàn tiền, để trang
+        // đối soát doanh thu/thanh toán không bị lệch với trạng thái đơn hàng.
+        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
+            tt.setTrangThai("DA_HOAN_TIEN");
+            thanhToanRepository.save(tt);
+        });
+
+        // Hoàn trả lại số lượng tồn kho cho từng sản phẩm trong đơn (nếu trước đó
+        // đã bị trừ kho), tránh thất thoát tồn kho khi hoàn tiền cho khách.
+        if (trangThaiTruocKhiHoan != TrangThaiDonHang.CHO_XAC_NHAN) {
+            for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
+                sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
+            }
+        }
 
         appendMiniAuditLog(donHang, admin.getHoTen(), "Hoàn tiền cho khách. Lý do: " + lyDo);
 
@@ -149,6 +191,77 @@ public class AdminOrderService {
         return mapToResponseDto(saved);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // T080 – GHI CHÚ NỘI BỘ
+    // Nhân viên thêm ghi chú nội bộ → Bếp thấy (qua danh sách/chi tiết đơn hàng
+    // trong trang quản trị), khách hàng KHÔNG bao giờ thấy vì đây là cột riêng
+    // (ghi_chu_noi_bo), tách biệt hoàn toàn khỏi "ghiChu" công khai và không được
+    // set trong OrderDto.Response ở phía OrderService (API khách hàng dùng).
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional
+    public OrderDto.Response updateInternalNote(Long id, String ghiChuNoiBo, String emailNhanVien) {
+        DonHang donHang = findOrder(id);
+        NguoiDung nhanVien = findAdmin(emailNhanVien);
+
+        if (ghiChuNoiBo == null || ghiChuNoiBo.trim().isEmpty()) {
+            throw new BusinessException("Nội dung ghi chú nội bộ không được để trống!");
+        }
+
+        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        String noteLine = String.format("[%s - %s]: %s", time, nhanVien.getHoTen(), ghiChuNoiBo.trim());
+        String currentNote = (donHang.getGhiChuNoiBo() == null) ? "" : donHang.getGhiChuNoiBo() + "\n";
+        donHang.setGhiChuNoiBo(currentNote + noteLine);
+
+        DonHang saved = donHangRepository.save(donHang);
+        return mapToResponseDto(saved);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // T080 – BARCODE GIAO HÀNG
+    // Nhân viên giao hàng quét mã trên bill (dạng "HD-{id}") lúc giao tận nơi
+    // cho khách → hệ thống tự động chuyển đơn từ DANG_GIAO sang DA_GIAO, ghi
+    // nhận thời điểm giao thực tế + báo khách, KHÔNG cần thao tác đổi trạng thái
+    // thủ công qua màn hình quản trị.
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional
+    public OrderDto.Response scanDelivery(String maVach, String emailNhanVien) {
+        NguoiDung nhanVien = findAdmin(emailNhanVien);
+
+        if (maVach == null || maVach.trim().isEmpty()) {
+            throw new BusinessException("Vui lòng quét/nhập mã đơn hàng cần giao!");
+        }
+
+        Matcher matcher = DELIVERY_BARCODE_PATTERN.matcher(maVach.trim());
+        if (!matcher.find()) {
+            throw new BusinessException("Mã vạch không hợp lệ! Không tìm thấy mã đơn hàng trong: " + maVach);
+        }
+        Long orderId = Long.parseLong(matcher.group(1));
+
+        DonHang donHang = findOrder(orderId);
+
+        if (donHang.getTrangThai() == TrangThaiDonHang.DA_GIAO) {
+            throw new BusinessException("Đơn hàng HD-" + orderId + " đã được quét giao hàng trước đó rồi!");
+        }
+        if (donHang.getTrangThai() != TrangThaiDonHang.DANG_GIAO) {
+            throw new BusinessException("Đơn hàng HD-" + orderId + " đang ở trạng thái "
+                    + donHang.getTrangThai().name() + ", chỉ có thể quét giao khi đơn đang ở trạng thái DANG_GIAO!");
+        }
+
+        LocalDateTime thoiDiemGiao = LocalDateTime.now();
+        donHang.setTrangThai(TrangThaiDonHang.DA_GIAO);
+        donHang.setThoiDiemGiao(thoiDiemGiao);
+        donHang.setNhanVien(nhanVien);
+
+        appendMiniAuditLog(donHang, nhanVien.getHoTen(),
+                "Quét mã vạch giao hàng thành công → chuyển sang DA_GIAO.");
+
+        DonHang saved = donHangRepository.save(donHang);
+        notifyUser(saved, "📦 Đơn hàng HD-" + orderId + " của bạn đã được giao thành công lúc "
+                + thoiDiemGiao.format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")) + "!");
+
+        return mapToResponseDto(saved);
+    }
+
     @Transactional
     public OrderDto.Response changeOrderStatus(Long id, String trangThaiMoi, String lyDoHuy, String emailAdmin) {
         DonHang donHang = findOrder(id);
@@ -213,6 +326,7 @@ public class AdminOrderService {
         print.setSoTienCoc(soTienCoc);
         print.setConLai(tongTien - soTienCoc);
         print.setGhiChu(extractUserNote(donHang.getGhiChu()));
+        print.setGhiChuNoiBo(donHang.getGhiChuNoiBo());
 
         if (donHang.getKhachHang() != null) {
             NguoiDung kh = donHang.getKhachHang();
@@ -495,6 +609,7 @@ public class AdminOrderService {
         dto.setTrangThai(donHang.getTrangThai().name());
 
         dto.setGhiChu(donHang.getGhiChu());
+        dto.setGhiChuNoiBo(donHang.getGhiChuNoiBo());
         dto.setLyDoHuy(donHang.getLyDoHuy());
         if (donHang.getNhanVien() != null) dto.setTenNhanVienPhuTrach(donHang.getNhanVien().getHoTen());
         dto.setCoThietKe3D(donHang.getThietKeBanhJson() != null && !donHang.getThietKeBanhJson().trim().isEmpty());

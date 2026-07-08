@@ -72,6 +72,10 @@ public class OrderDto {
         private Double tongTien;
         private String trangThai;
         private String ghiChu;
+
+        // T080 – Ghi chú nội bộ (chỉ nhân viên/bếp thấy). Service chỉ set giá trị
+        // này khi người gọi API là ADMIN/NHAN_VIEN; luôn để null với khách hàng.
+        private String ghiChuNoiBo;
         private String emailNguoiDung;
         private String tenNhanVienPhuTrach;
         private String lyDoHuy;
@@ -124,6 +128,9 @@ public class OrderDto {
         private Double soTienCoc;
         private Double conLai;
         private String ghiChu;
+
+        // T080 – Ghi chú nội bộ hiển thị trên phiếu in cho Bếp/Nhân viên
+        private String ghiChuNoiBo;
         private String nguonDon;
 
         private String tenKhachHang;
