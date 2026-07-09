@@ -43,6 +43,7 @@ public class SecurityConfig {
 
                 // Public endpoints
                 .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
+                .requestMatchers("/api/v1/health", "/api/v1/health/**").permitAll() // T103: Health Check public
                 .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/accessories/**", "/ws-bakery/**").permitAll()
 
                         // T070 – Validate mã giảm giá/voucher trước khi đặt hàng (chỉ khách đã đăng nhập)

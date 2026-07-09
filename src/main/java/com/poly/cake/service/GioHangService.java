@@ -47,7 +47,13 @@ public class GioHangService {
     @Transactional
     public GioHangDto.GioHangResponse layGioHang(String email) {
         NguoiDung nguoiDung = timNguoiDung(email);
-        GioHang gioHang = layHoacTaoGioHang(nguoiDung);
+        // [T105 - Fix N+1] Dùng query JOIN FETCH để tải sẵn chi tiết giỏ hàng,
+        // sản phẩm và danh mục trong 1 câu SQL — tránh N+1 kép
+        GioHang gioHang = gioHangRepository.findByKhachHangWithDetails(nguoiDung)
+                .orElseGet(() -> {
+                    GioHang moi = GioHang.builder().khachHang(nguoiDung).build();
+                    return gioHangRepository.save(moi);
+                });
         return mapToGioHangResponse(gioHang);
     }
 
