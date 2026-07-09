@@ -56,4 +56,27 @@ public class ReportController {
     public ResponseEntity<?> getDoiSoatGiaoDich(@RequestParam(required = false) String maGiaoDich) {
         return ResponseEntity.ok(reportService.getDanhSachDoiSoat(maGiaoDich));
     }
+    // API Xem bảng lương JSON
+    @GetMapping("/luong")
+    public ResponseEntity<?> getBangLuong(@RequestParam int thang, @RequestParam int nam) {
+        return ResponseEntity.ok(reportService.tinhLuongNhanVien(thang, nam));
+    }
+
+    // API Tải file Excel Bảng lương
+    @GetMapping("/luong/export-excel")
+    public ResponseEntity<InputStreamResource> exportBangLuongExcel(@RequestParam int thang, @RequestParam int nam) throws Exception {
+        ByteArrayInputStream in = reportService.exportLuongExcel(thang, nam);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=BangLuong_T" + thang + "_" + nam + ".xlsx");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(new InputStreamResource(in));
+    }
+    // API Xem danh sách sử dụng Voucher
+    @GetMapping("/voucher-usage")
+    public ResponseEntity<?> getVoucherUsage(@RequestParam(required = false) String maCode) {
+        return ResponseEntity.ok(reportService.getVoucherUsage(maCode));
+    }
 }

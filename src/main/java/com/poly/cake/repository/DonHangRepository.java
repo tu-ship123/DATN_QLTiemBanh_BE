@@ -3,6 +3,7 @@ package com.poly.cake.repository;
 import com.poly.cake.dto.DoanhThuKenhDto;
 import com.poly.cake.dto.HieuSuatNhanVienDto;
 import com.poly.cake.dto.TopSanPhamDto;
+import com.poly.cake.dto.VoucherUsageDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -67,5 +68,13 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
             "GROUP BY nv.id, nv.hoTen " +
             "ORDER BY SUM(d.tongTien) DESC")
     List<HieuSuatNhanVienDto> getHieuSuatNhanVien();
+
+    @Query("SELECT new com.poly.cake.dto.VoucherUsageDto(m.maCode, k.id, k.hoTen, d.id, d.ngayTao) " +
+            "FROM DonHang d " +
+            "JOIN d.maGiamGia m " +
+            "JOIN d.khachHang k " +
+            "WHERE (:maCode IS NULL OR m.maCode = :maCode) " +
+            "ORDER BY m.maCode, d.ngayTao DESC")
+    List<VoucherUsageDto> getVoucherUsage(@Param("maCode") String maCode);
 }
 

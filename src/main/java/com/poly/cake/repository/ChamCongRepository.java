@@ -17,4 +17,10 @@ public interface ChamCongRepository extends JpaRepository<ChamCong, Long> {
     boolean existsByPhanCa(PhanCa phanCa);
     @Query("SELECT cc FROM ChamCong cc WHERE cc.phanCa.ngayLamViec = :ngay AND cc.loaiBaoCao IS NOT NULL")
     List<ChamCong> findByNgayLamViecAndCoLoaiBaoCao(@Param("ngay") LocalDate ngay);
+
+    @Query("SELECT c FROM ChamCong c JOIN FETCH c.phanCa pc JOIN FETCH pc.nhanVien nv " +
+            "WHERE MONTH(pc.ngayLamViec) = :thang AND YEAR(pc.ngayLamViec) = :nam " +
+            "AND c.gioVao IS NOT NULL AND c.gioRa IS NOT NULL")
+    List<ChamCong> findByThangAndNam(@Param("thang") int thang, @Param("nam") int nam);
+
 }
