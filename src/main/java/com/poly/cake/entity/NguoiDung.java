@@ -37,9 +37,11 @@ public class NguoiDung {
     @Column(columnDefinition = "NVARCHAR(500)")
     private String anhDaiDien;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String quyen = "KHACH_HANG"; // ADMIN, NHAN_VIEN, KHACH_HANG
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "HOAT_DONG"; // HOAT_DONG, BI_KHOA, NGUNG_HOAT_DONG
 
@@ -58,7 +60,8 @@ public class NguoiDung {
     @Column(name = "totp_secret", columnDefinition = "NVARCHAR(100)")
     private String totpSecret;
 
-    @Column(name = "is_2fa_enabled", nullable = false)
+    @Builder.Default
+    @Column(name = "is_2fa_enabled", nullable = false, columnDefinition = "bit default 0")
     private Boolean is2FaEnabled = false;
 
     @PrePersist

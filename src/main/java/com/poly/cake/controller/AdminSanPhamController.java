@@ -24,10 +24,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/v1/admin/products")
-// 👉 BẠN XÓA HẲN DÒNG @PreAuthorize... Ở VỊ TRÍ NÀY ĐI NHÉ
+// T103 – RBAC nâng cao: class-level chỉ cho ADMIN và NHAN_VIEN vào,
+// các method write (POST/PUT/DELETE/PATCH) yêu cầu thêm @PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
 public class AdminSanPhamController {
-    // ...
-
 
     @Autowired
     private AdminSanPhamService adminSanPhamService;
@@ -35,6 +35,7 @@ public class AdminSanPhamController {
     @Autowired
     private com.poly.cake.service.InventoryService inventoryService;
 
+    // GET: Cả ADMIN và NHAN_VIEN đều xem được
     @GetMapping
     public ResponseEntity<?> getProducts(
             @RequestParam(required = false) String keyword,
@@ -42,33 +43,27 @@ public class AdminSanPhamController {
             @RequestParam(required = false) Long danhMucId) {
 
         return ResponseEntity.ok(
-                adminSanPhamService.getFilteredProducts(
-                        keyword,
-                        trangThai,
-                        danhMucId
-                )
+                adminSanPhamService.getFilteredProducts(keyword, trangThai, danhMucId)
         );
     }
 
+    // GET: Cả ADMIN và NHAN_VIEN đều xem được
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(
-                adminSanPhamService.getProductById(id)
-        );
+        return ResponseEntity.ok(adminSanPhamService.getProductById(id));
     }
 
-    // Danh sách sản phẩm đang tồn kho thấp (so_luong_ton <= nguong_canh_bao)
+    // GET: Danh sách sản phẩm đang tồn kho thấp (so_luong_ton <= nguong_canh_bao)
     @GetMapping("/canh-bao-ton-thap")
     public ResponseEntity<?> getLowStockProducts() {
-        return ResponseEntity.ok(
-                adminSanPhamService.getLowStockProducts()
-        );
+        return ResponseEntity.ok(adminSanPhamService.getLowStockProducts());
     }
 
-    // Điều chỉnh tồn kho thủ công (nhập hàng, kiểm kê, hoặc TEST cảnh báo qua Postman).
-    // body: { "soLuongThayDoi": -6 }  -> âm = trừ bớt, dương = nhập thêm
-    // Tự động kiểm tra ngưỡng và gửi cảnh báo (lưu DB + báo real-time) nếu tồn kho xuống thấp.
+    // PATCH: Điều chỉnh tồn kho thủ công — chỉ ADMIN
+    // body: { "soLuongThayDoi": -6 } → âm = trừ bớt, dương = nhập thêm
+    // Tự động kiểm tra ngưỡng và gửi cảnh báo nếu tồn kho xuống thấp.
     @PatchMapping("/{id}/dieu-chinh-ton-kho")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> dieuChinhTonKho(
             @PathVariable Long id,
             @RequestBody Map<String, Integer> body) {
@@ -85,30 +80,27 @@ public class AdminSanPhamController {
         ));
     }
 
+    // POST: Thêm sản phẩm mới — chỉ ADMIN
     @PostMapping
-    public ResponseEntity<?> create(
-            @Valid @RequestBody SanPhamDto.Request request) {
-
-        return ResponseEntity.ok(
-                adminSanPhamService.createProduct(request)
-        );
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> create(@Valid @RequestBody SanPhamDto.Request request) {
+        return ResponseEntity.ok(adminSanPhamService.createProduct(request));
     }
 
+    // PUT: Cập nhật sản phẩm — chỉ ADMIN
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody SanPhamDto.Request request) {
-
-        return ResponseEntity.ok(
-                adminSanPhamService.updateProduct(id, request)
-        );
+        return ResponseEntity.ok(adminSanPhamService.updateProduct(id, request));
     }
 
+    // DELETE: Xóa sản phẩm — chỉ ADMIN
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-
         adminSanPhamService.deleteProduct(id);
-
         return ResponseEntity.ok("Xóa sản phẩm thành công");
     }
 }
