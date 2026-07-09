@@ -14,7 +14,7 @@ import com.poly.cake.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -48,24 +48,10 @@ public class AuthService {
     private final TotpService totpService;
     private final JavaMailSender mailSender;
     private final EmailService emailService;
-    private final SmsService smsService;
-    private final StringRedisTemplate redisTemplate;
     private final RestTemplate restTemplate;
 
     @Value("${google.client-id}")
     private String googleClientId;
-
-    // Hậu tố email giả (nội bộ) cấp cho tài khoản đăng ký bằng OTP SĐT, vì
-    // cột email trong DB đang là NOT NULL UNIQUE và toàn bộ hệ thống hiện
-    // dùng email làm định danh đăng nhập (JWT subject). Email này KHÔNG gửi
-    // cho người dùng và không dùng để đăng nhập bằng mật khẩu.
-    private static final String PHONE_EMAIL_SUFFIX = "@phone.chocopine.local";
-
-    // Tiền tố key Redis lưu OTP đăng ký SĐT, TTL 5 phút
-    private static final String OTP_REGISTER_PREFIX = "otp:register:";
-    private static final long OTP_TTL_MINUTES = 5;
-    // Giới hạn gửi lại OTP: tối thiểu 60 giây / lần để tránh spam SMS
-    private static final long OTP_RESEND_COOLDOWN_SECONDS = 60;
 
     // [SỬA] Dùng SecureRandom thay cho Random để tạo OTP an toàn hơn
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -73,27 +59,60 @@ public class AuthService {
     // T007: Đăng ký
     @Transactional
     public void register(RegisterRequest request) {
+        // Chuẩn hoá email: trim + lowercase, để "Test@Gmail.com" và "test@gmail.com"
+        // được coi là CÙNG một email khi check trùng lẫn khi lưu (tránh lệch giữa
+        // check và insert, đặc biệt khi DB collation không phân biệt hoa/thường).
+        String email = request.getEmail().trim().toLowerCase();
+        String soDienThoai = request.getSoDienThoai() != null ? request.getSoDienThoai().trim() : null;
+
         // Điều kiện 1: Email đã tồn tại -> không cho đăng ký trùng
-        if (nguoiDungRepository.existsByEmail(request.getEmail())) {
+        if (nguoiDungRepository.existsByEmail(email)) {
             throw new BusinessException("Email đã được sử dụng!");
         }
 
         // Điều kiện 2: Số điện thoại đã được dùng cho tài khoản khác -> báo lỗi rõ ràng cho FE
-        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()
-                && nguoiDungRepository.existsBySoDienThoai(request.getSoDienThoai())) {
+        if (soDienThoai != null && !soDienThoai.isBlank()
+                && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
             throw new BusinessException("Số điện thoại đã được sử dụng!");
         }
 
         NguoiDung user = NguoiDung.builder()
                 .hoTen(request.getHoTen())
-                .email(request.getEmail())
+                .email(email)
                 .matKhau(passwordEncoder.encode(request.getMatKhau()))
-                .soDienThoai(request.getSoDienThoai())
+                .soDienThoai(soDienThoai)
                 .quyen("KHACH_HANG")
                 .trangThai("HOAT_DONG")
                 .build();
 
-        nguoiDungRepository.save(user);
+        // Dùng try-catch thay vì chỉ dựa vào check ở trên: 2 check phía trên và
+        // câu INSERT không nằm trong cùng 1 thao tác nguyên tử (atomic), nên nếu
+        // 2 request đăng ký cùng dữ liệu được gửi gần như đồng thời (double-click,
+        // mạng chậm khiến người dùng bấm lại...), CẢ HAI đều có thể "lọt" qua check
+        // ở trên (vì lúc check, request kia chưa commit xong), request insert sau
+        // sẽ vi phạm UNIQUE constraint ở DB.
+        //
+        // QUAN TRỌNG: sau khi save() ném DataIntegrityViolationException, Hibernate
+        // Session coi như đã "nhiễm độc" (bị Hibernate cảnh báo:
+        // "don't flush the Session after an exception occurs") — TUYỆT ĐỐI không
+        // được gọi thêm bất kỳ repository/query nào khác trong cùng transaction
+        // này nữa (kể cả existsByEmail/existsBySoDienThoai), nếu không sẽ ăn thêm
+        // lỗi AssertionFailure ("null id in entry") đè lên lỗi gốc. Vì vậy ở đây
+        // CHỈ đọc message của chính exception (tên constraint UNIQUE bị vi phạm,
+        // xem db/003_..., db/006_..., db/007_...) để xác định trùng field nào,
+        // không truy vấn lại DB.
+        try {
+            nguoiDungRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            String detail = e.getMostSpecificCause() != null ? e.getMostSpecificCause().getMessage() : e.getMessage();
+            if (detail != null && detail.contains("UQ_nguoi_dung_so_dien_thoai")) {
+                throw new BusinessException("Số điện thoại đã được sử dụng!");
+            }
+            if (detail != null && detail.contains("UQ_nguoi_dung_email")) {
+                throw new BusinessException("Email đã được sử dụng!");
+            }
+            throw e; // Vi phạm ràng buộc khác -> để GlobalExceptionHandler xử lý (fallback 409 chung)
+        }
     }
 
     // T008: Đăng nhập
@@ -253,82 +272,6 @@ public class AuthService {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // T065 - Bước 1: Gửi mã OTP đăng ký bằng số điện thoại
-    // ═══════════════════════════════════════════════════════════════════
-    @Transactional(readOnly = true)
-    public void sendRegisterOtp(SendPhoneOtpRequest request) {
-        String phone = request.getSoDienThoai();
-
-        // Số điện thoại đã có tài khoản rồi thì không cho đăng ký lại
-        if (nguoiDungRepository.existsBySoDienThoai(phone)) {
-            throw new BusinessException("Số điện thoại này đã được đăng ký tài khoản!");
-        }
-
-        String cooldownKey = OTP_REGISTER_PREFIX + phone + ":cooldown";
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
-            throw new BusinessException("Bạn vừa yêu cầu mã OTP, vui lòng đợi ít phút rồi thử lại!");
-        }
-
-        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
-        String otpKey = OTP_REGISTER_PREFIX + phone;
-
-        redisTemplate.opsForValue().set(otpKey, otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
-        redisTemplate.opsForValue().set(cooldownKey, "1", OTP_RESEND_COOLDOWN_SECONDS, TimeUnit.SECONDS);
-
-        smsService.sendOtp(phone, otp);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // T065 - Bước 2: Xác thực OTP + tạo tài khoản, tự động đăng nhập luôn
-    // ═══════════════════════════════════════════════════════════════════
-    @Transactional
-    public AuthResponse verifyRegisterOtp(VerifyPhoneOtpRequest request) {
-        String phone = request.getSoDienThoai();
-        String otpKey = OTP_REGISTER_PREFIX + phone;
-
-        String savedOtp = redisTemplate.opsForValue().get(otpKey);
-        if (savedOtp == null) {
-            throw new BusinessException("Mã OTP đã hết hạn hoặc chưa được gửi, vui lòng yêu cầu mã mới!");
-        }
-        if (!savedOtp.equals(request.getOtp())) {
-            throw new BusinessException("Mã OTP không chính xác!");
-        }
-
-        // Dùng 1 lần xong xóa ngay, tránh bị lợi dụng gọi lại API nhiều lần
-        redisTemplate.delete(otpKey);
-
-        // Kiểm tra lại lần cuối (chống trường hợp 2 request chạy song song
-        // cùng đăng ký 1 số điện thoại trong lúc chờ xác thực OTP)
-        if (nguoiDungRepository.existsBySoDienThoai(phone)) {
-            throw new BusinessException("Số điện thoại này đã được đăng ký tài khoản!");
-        }
-
-        String hoTen = (request.getHoTen() == null || request.getHoTen().isBlank())
-                ? "Khách hàng"
-                : request.getHoTen();
-
-        // Email nội bộ (không hiển thị cho người dùng) để thỏa ràng buộc
-        // NOT NULL UNIQUE của cột email — tài khoản này chỉ đăng nhập lại
-        // qua OTP SĐT, không dùng luồng đăng nhập email/mật khẩu.
-        String internalEmail = phone + PHONE_EMAIL_SUFFIX;
-
-        String rawPassword = (request.getMatKhau() == null || request.getMatKhau().isBlank())
-                ? UUID.randomUUID().toString()
-                : request.getMatKhau();
-
-        NguoiDung user = NguoiDung.builder()
-                .hoTen(hoTen)
-                .email(internalEmail)
-                .matKhau(passwordEncoder.encode(rawPassword))
-                .soDienThoai(phone)
-                .quyen("KHACH_HANG")
-                .trangThai("HOAT_DONG")
-                .build();
-
-        nguoiDungRepository.save(user);
-
-        return issueTokensAndLog(user, "DANG_KY_OTP_SDT");
-    }
 
     // ═══════════════════════════════════════════════════════════════════
     // T065 - Đăng nhập / Đăng ký bằng Google OAuth2

@@ -244,7 +244,7 @@ public class OrderService {
             log.warn("Gửi Discord thông báo đơn mới HD-{} thất bại: {}", savedDonHang.getId(), e.getMessage());
         }
 
-        return mapToResponseDto(savedDonHang);
+        return mapToResponseDto(savedDonHang, false);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -256,7 +256,7 @@ public class OrderService {
         // [T105 - Fix N+1] Dùng query có JOIN FETCH thay cho findByKhachHangOrderByNgayTaoDesc()
         // → tải toàn bộ chi tiết + sản phẩm trong 1 câu SQL duy nhất
         return donHangRepository.findByKhachHangWithDetails(khachHang)
-                .stream().map(this::mapToResponseDto).collect(Collectors.toList());
+                .stream().map(d -> mapToResponseDto(d, false)).collect(Collectors.toList());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -264,7 +264,7 @@ public class OrderService {
     // ═══════════════════════════════════════════════════════════════════════════
     public List<OrderDto.Response> getAllOrders() {
         return donHangRepository.findAll().stream()
-                .map(this::mapToResponseDto).collect(Collectors.toList());
+                .map(d -> mapToResponseDto(d, true)).collect(Collectors.toList());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -276,13 +276,17 @@ public class OrderService {
         DonHang donHang = donHangRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + id));
 
-        if ("ROLE_KHACH_HANG".equals(role) || "KHACH_HANG".equals(role)) {
+        boolean laKhachHang = "ROLE_KHACH_HANG".equals(role) || "KHACH_HANG".equals(role);
+
+        if (laKhachHang) {
             if (donHang.getKhachHang() == null || !donHang.getKhachHang().getEmail().equals(email)) {
                 throw new ForbiddenException("Bạn không có quyền xem đơn hàng này!");
             }
         }
 
-        return mapToResponseDto(donHang);
+        // T080 – Ghi chú nội bộ chỉ hiện với ADMIN/NHAN_VIEN, khách hàng (kể cả xem
+        // đúng đơn của mình) không bao giờ nhận được trường ghiChuNoiBo.
+        return mapToResponseDto(donHang, !laKhachHang);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -326,7 +330,12 @@ public class OrderService {
 
         TrangThaiDonHang trangThaiHienTai = donHang.getTrangThai();
 
-        if (trangThaiHienTai == TrangThaiDonHang.HOAN_THANH || trangThaiHienTai == TrangThaiDonHang.DA_HUY) {
+        // T080: DA_GIAO nghĩa là đã quét mã bill giao hàng thành công — cũng phải
+        // coi là trạng thái chốt như HOAN_THANH/DA_HUY, không cho đổi tiếp nữa.
+        if (trangThaiHienTai == TrangThaiDonHang.HOAN_THANH
+                || trangThaiHienTai == TrangThaiDonHang.DA_HUY
+                || trangThaiHienTai == TrangThaiDonHang.DA_GIAO
+                || trangThaiHienTai == TrangThaiDonHang.DA_HOAN_TIEN) {
             throw new BusinessException("Đơn hàng đã chốt (Giao/Hủy/Hoàn tiền) thì không thể thay đổi trạng thái được nữa!");
         }
 
@@ -356,7 +365,7 @@ public class OrderService {
             notificationService.notifyOrderStatusToUser(updatedDonHang.getKhachHang().getEmail(), loiNhan);
         }
 
-        return mapToResponseDto(updatedDonHang);
+        return mapToResponseDto(updatedDonHang, true);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -453,7 +462,7 @@ public class OrderService {
             log.warn("Gửi Discord thông báo hủy đơn HD-{} thất bại: {}", id, e.getMessage());
         }
 
-        return mapToResponseDto(updatedDonHang);
+        return mapToResponseDto(updatedDonHang, false);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -539,7 +548,7 @@ public class OrderService {
     // ═══════════════════════════════════════════════════════════════════════════
     // HÀM PHỤ TRỢ – Entity → DTO
     // ═══════════════════════════════════════════════════════════════════════════
-    private OrderDto.Response mapToResponseDto(DonHang donHang) {
+    private OrderDto.Response mapToResponseDto(DonHang donHang, boolean withInternalNote) {
         OrderDto.Response dto = new OrderDto.Response();
         dto.setId(donHang.getId());
         dto.setMaDonHang("HD-" + donHang.getId());
@@ -563,6 +572,12 @@ public class OrderService {
         // Lấy tên chuỗi từ Enum để gán vào DTO
         dto.setTrangThai(donHang.getTrangThai().name());
         dto.setGhiChu(donHang.getGhiChu());
+
+        // T080 – Ghi chú nội bộ CHỈ được set khi withInternalNote=true (gọi từ các
+        // luồng dành cho ADMIN/NHAN_VIEN). Khách hàng luôn nhận null ở trường này.
+        if (withInternalNote) {
+            dto.setGhiChuNoiBo(donHang.getGhiChuNoiBo());
+        }
 
         if (donHang.getNhanVien() != null) {
             dto.setTenNhanVienPhuTrach(donHang.getNhanVien().getHoTen());

@@ -54,6 +54,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
                         .requestMatchers("/api/v1/admin/reviews", "/api/v1/admin/reviews/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
+                        // T080 – Đơn hàng: Nhân viên (bếp/giao hàng) cũng cần truy cập để lọc đơn,
+                        // xem chi tiết/in bill, ghi chú nội bộ, quét mã vạch giao hàng, đổi trạng thái
+                        // theo flow chuẩn... Các thao tác nhạy cảm hơn (override, refund, hủy ép buộc)
+                        // vẫn chỉ dành cho ADMIN nhờ @PreAuthorize("hasRole('ADMIN')") riêng ở từng
+                        // method trong AdminOrderController.
+                        .requestMatchers("/api/v1/admin/orders", "/api/v1/admin/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
                         // Admin only (các phần còn lại)
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
 

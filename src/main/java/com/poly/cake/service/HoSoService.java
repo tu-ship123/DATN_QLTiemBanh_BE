@@ -89,6 +89,14 @@ public class HoSoService {
             throw new BusinessException("Mật khẩu hiện tại không chính xác!");
         }
 
+        // T097: Tài khoản nội bộ (ADMIN, NHAN_VIEN) đổi mật khẩu qua Staff
+        // Portal bắt buộc mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt,
+        // siết chặt hơn khách hàng để giảm rủi ro dò/đoán mật khẩu nội bộ.
+        boolean laTaiKhoanNoiBo = "ADMIN".equals(user.getQuyen()) || "NHAN_VIEN".equals(user.getQuyen());
+        if (laTaiKhoanNoiBo && !chuaKyTuDacBiet(request.getMatKhauMoi())) {
+            throw new BusinessException("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (VD: !@#$%^&*)!");
+        }
+
         user.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
         nguoiDungRepository.save(user);
 
@@ -118,6 +126,14 @@ public class HoSoService {
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken);
         return response;
+    }
+
+    // T097: Ký tự đặc biệt = không phải chữ cái, chữ số hay khoảng trắng
+    private static final java.util.regex.Pattern KY_TU_DAC_BIET = java.util.regex.Pattern
+            .compile("[^a-zA-Z0-9\\s]");
+
+    private boolean chuaKyTuDacBiet(String matKhau) {
+        return matKhau != null && KY_TU_DAC_BIET.matcher(matKhau).find();
     }
 
     private NguoiDung timTaiKhoan(String email) {

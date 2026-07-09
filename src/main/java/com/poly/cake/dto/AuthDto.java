@@ -72,33 +72,6 @@ public class AuthDto {
         private String newPassword;
     }
 
-    // T065: Đăng ký OTP SĐT - Bước 1: Gửi mã OTP
-    @Data
-    public static class SendPhoneOtpRequest {
-        @NotBlank(message = "Số điện thoại không được để trống")
-        @Pattern(regexp = "^(0|\\+84)[0-9]{8,10}$", message = "Số điện thoại không hợp lệ")
-        private String soDienThoai;
-    }
-
-    // T065: Đăng ký OTP SĐT - Bước 2: Xác thực OTP + tạo tài khoản
-    @Data
-    public static class VerifyPhoneOtpRequest {
-        @NotBlank(message = "Số điện thoại không được để trống")
-        @Pattern(regexp = "^(0|\\+84)[0-9]{8,10}$", message = "Số điện thoại không hợp lệ")
-        private String soDienThoai;
-
-        @NotBlank(message = "Mã OTP không được để trống")
-        private String otp;
-
-        @Size(max = 150, message = "Họ tên tối đa 150 ký tự")
-        private String hoTen;
-
-        // Không bắt buộc: nếu để trống, hệ thống tự tạo mật khẩu ngẫu nhiên
-        // (tài khoản đăng nhập lại bằng OTP SĐT, không cần nhớ mật khẩu)
-        @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
-        private String matKhau;
-    }
-
     // T065: Đăng nhập/Đăng ký bằng Google OAuth2
     @Data
     public static class GoogleLoginRequest {
