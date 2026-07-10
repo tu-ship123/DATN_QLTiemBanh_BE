@@ -11,6 +11,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.poly.cake.exception.MailSendingException;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 
@@ -159,4 +160,30 @@ public class EmailService {
         );
         mailSender.send(message);
     }
+
+    // ✅ Gửi email cảnh báo tồn kho thấp cho Admin
+public void sendLowStockWarningEmail(String toAdminEmail, String tenSanPham, int soLuongTon, int nguongCanhBao) {
+    try {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toAdminEmail);
+        message.setSubject("⚠️ CẢNH BÁO: Sản phẩm [" + tenSanPham + "] sắp hết hàng!");
+        message.setText(
+                "Kính gửi Ban quản trị Chocopine,\n\n" +
+                "Hệ thống kiểm tra kho hàng tự động phát hiện sản phẩm sau đang ở mức báo động:\n" +
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                "   📦 Sản phẩm: " + tenSanPham + "\n" +
+                "   🚨 Tồn kho hiện tại: " + soLuongTon + "\n" +
+                "   📌 Ngưỡng cảnh báo đặt: " + nguongCanhBao + "\n" +
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                "Vui lòng lên kế hoạch Tạo phiếu nhập kho bổ sung sớm để tránh gián đoạn việc bán hàng.\n\n" +
+                "Trân trọng,\n" +
+                "Hệ thống tự động Chocopine 🍰"
+        );
+        mailSender.send(message);
+        log.info("📧 Đã gửi email cảnh báo sản phẩm {} (Tồn: {}) tới Admin: {}", tenSanPham, soLuongTon, toAdminEmail);
+    } catch (Exception e) {
+        log.error("❌ Gửi email cảnh báo tồn kho thấp thất bại cho admin {}: {}", toAdminEmail, e.getMessage());
+        throw new MailSendingException("Lỗi gửi mail cảnh báo tồn kho: " + e.getMessage(), e);
+    }
+}
 }
