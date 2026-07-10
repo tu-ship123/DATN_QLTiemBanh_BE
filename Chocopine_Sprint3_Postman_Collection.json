@@ -1,23 +1,54 @@
 {
   "info": {
-    "name": "Chocopine Sprint 3",
-    "description": "Postman Collection cho các API của Sprint 3 (Orders, Inventory, Reviews, Products)",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "Chocopine Sprint 3 – Full API Collection",
+    "description": "Postman Collection đầy đủ cho toàn bộ API của hệ thống Choco Pine Bakery 3D.\nBao gồm: Auth, Cart, Orders, Admin Orders, Products, Reviews, Vouchers, Loyalty, Dashboard, Audit, Settings, Shifts, POS, Staff, Payment, Health Check.\n\nCách dùng:\n1. Import collection này vào Postman\n2. Tạo Environment với biến: baseUrl=http://localhost:8080\n3. Chạy request 'Login' trước để lấy accessToken\n4. Dán accessToken vào biến 'token' của Environment\n5. Các request cần auth đều dùng {{token}} tự động",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "chocopine-sprint3-full-v2"
   },
   "item": [
     {
       "name": "1. Authentication",
+      "description": "Đăng ký, đăng nhập, refresh token, quên mật khẩu, Google OAuth2, 2FA TOTP",
       "item": [
         {
-          "name": "Login",
+          "name": "Register (Đăng ký)",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"123456\"\n}"
+              "raw": "{\n    \"hoTen\": \"Nguyễn Văn A\",\n    \"email\": \"nguyenvana@example.com\",\n    \"matKhau\": \"Password123!\",\n    \"soDienThoai\": \"0901234567\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login (Đăng nhập)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "    pm.environment.set('token', json.accessToken);",
+                  "    pm.environment.set('refreshToken', json.refreshToken);",
+                  "    console.log('Token saved!');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@chocopine.com\",\n    \"matKhau\": \"admin123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/login",
@@ -25,19 +56,607 @@
               "path": ["api", "v1", "auth", "login"]
             }
           }
+        },
+        {
+          "name": "Login với 2FA TOTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@chocopine.com\",\n    \"matKhau\": \"admin123\",\n    \"totpCode\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh?refreshToken={{refreshToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"],
+              "query": [{ "key": "refreshToken", "value": "{{refreshToken}}" }]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password (Quên mật khẩu)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "forgot-password"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password (Đặt lại mật khẩu)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"otp\": \"123456\",\n    \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "OTP SĐT – Gửi mã OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"soDienThoai\": \"0901234567\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "otp", "send"]
+            }
+          }
+        },
+        {
+          "name": "OTP SĐT – Xác thực OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"soDienThoai\": \"0901234567\",\n    \"otp\": \"123456\",\n    \"hoTen\": \"Nguyễn Văn B\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "otp", "verify"]
+            }
+          }
+        },
+        {
+          "name": "Google OAuth2 Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"idToken\": \"GOOGLE_ID_TOKEN_FROM_FRONTEND\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "google"]
+            }
+          }
+        },
+        {
+          "name": "2FA TOTP – Setup (Lấy QR Code)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "totp", "setup"]
+            }
+          }
+        },
+        {
+          "name": "2FA TOTP – Verify & Enable",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/verify?code=123456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "totp", "verify"],
+              "query": [{ "key": "code", "value": "123456" }]
+            }
+          }
+        },
+        {
+          "name": "2FA TOTP – Disable",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/disable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "totp", "disable"]
+            }
+          }
         }
       ]
     },
     {
-      "name": "2. Inventory",
+      "name": "2. Health Check (T103)",
+      "description": "Kiểm tra trạng thái hệ thống: DB, Redis",
       "item": [
         {
-          "name": "Lấy DS Cảnh Báo Tồn Kho",
+          "name": "Health Check",
           "request": {
             "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Products (Sản phẩm khách)",
+      "description": "Public endpoints: xem danh sách, chi tiết sản phẩm",
+      "item": [
+        {
+          "name": "Lấy DS Sản Phẩm (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?keyword=&trangThai=DANG_BAN&danhMucId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "keyword", "value": "" },
+                { "key": "trangThai", "value": "DANG_BAN" },
+                { "key": "danhMucId", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xem Chi Tiết Sản Phẩm",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products", "1"]
+            }
+          }
+        },
+        {
+          "name": "Lấy DS Phụ Kiện Trang Trí (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accessories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accessories"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Categories (Danh mục khách)",
+      "item": [
+        {
+          "name": "Lấy DS Danh Mục (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Cart (Giỏ hàng)",
+      "description": "Quản lý giỏ hàng: thêm, xóa, cập nhật, áp mã giảm giá",
+      "item": [
+        {
+          "name": "Lấy Giỏ Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart"]
+            }
+          }
+        },
+        {
+          "name": "Thêm Sản Phẩm Vào Giỏ",
+          "request": {
+            "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"sanPhamId\": 1,\n    \"soLuong\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart", "items"]
+            }
+          }
+        },
+        {
+          "name": "Cập Nhật Số Lượng",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"soLuong\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart/items/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart", "items", "1"]
+            }
+          }
+        },
+        {
+          "name": "Xóa 1 Sản Phẩm Khỏi Giỏ",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart/items/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart", "items", "1"]
+            }
+          }
+        },
+        {
+          "name": "Xóa Toàn Bộ Giỏ Hàng",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart"]
+            }
+          }
+        },
+        {
+          "name": "Áp Mã Giảm Giá",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"maCode\": \"SALE10\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart/discount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart", "discount"]
+            }
+          }
+        },
+        {
+          "name": "Gỡ Mã Giảm Giá",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart/discount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cart", "discount"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Orders (Đơn hàng khách)",
+      "item": [
+        {
+          "name": "Đặt Hàng (Checkout)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"diaChiGiaoHang\": \"123 Đường ABC, Quận 1, TP.HCM\",\n    \"ngayGiaoHang\": \"2026-07-15\",\n    \"ghiChu\": \"Giao buổi sáng\",\n    \"items\": [\n        {\n            \"sanPhamId\": 1,\n            \"soLuong\": 1,\n            \"donGia\": 250000\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Lịch Sử Đơn Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Xem Chi Tiết Đơn Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "1"]
+            }
+          }
+        },
+        {
+          "name": "Hủy Đơn Hàng (Khách tự hủy)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/1/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "1", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "Tải PDF Hóa Đơn",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/1/invoice",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "1", "invoice"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Admin – Orders (Quản lý đơn hàng)",
+      "description": "Admin/Nhân viên quản lý đơn hàng",
+      "item": [
+        {
+          "name": "Lọc DS Đơn Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?trangThai=CHO_XAC_NHAN&nguonDon=ONLINE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "trangThai", "value": "CHO_XAC_NHAN" },
+                { "key": "nguonDon", "value": "ONLINE" },
+                { "key": "tuNgay", "value": "", "disabled": true },
+                { "key": "denNgay", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đổi Trạng Thái Đơn (Flow chuẩn)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/status?trangThaiMoi=DA_XAC_NHAN",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "status"],
+              "query": [
+                { "key": "trangThaiMoi", "value": "DA_XAC_NHAN" },
+                { "key": "lyDoHuy", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Override Trạng Thái (Admin only)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/override?trangThaiMoi=HOAN_THANH&lyDo=Xử lý thủ công",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "override"],
+              "query": [
+                { "key": "trangThaiMoi", "value": "HOAN_THANH" },
+                { "key": "lyDo", "value": "Xử lý thủ công" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hoàn Tiền Đơn Hàng (Admin only)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/refund?lyDo=Khách không nhận hàng",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "refund"],
+              "query": [{ "key": "lyDo", "value": "Khách không nhận hàng" }]
+            }
+          }
+        },
+        {
+          "name": "Hủy Đơn & Hoàn Kho (Admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/cancel?lyDo=Khách yêu cầu hủy",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "cancel"],
+              "query": [{ "key": "lyDo", "value": "Khách yêu cầu hủy" }]
+            }
+          }
+        },
+        {
+          "name": "Cập Nhật Thông Tin Đơn",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"diaChiGiaoHang\": \"456 Đường XYZ, Quận 2\",\n    \"soDienThoai\": \"0909876543\",\n    \"ngayGiaoHang\": \"2026-07-20\",\n    \"ghiChu\": \"Giao buổi chiều\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "update"]
+            }
+          }
+        },
+        {
+          "name": "In Phiếu Đơn Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/print",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "print"]
+            }
+          }
+        },
+        {
+          "name": "Xác Nhận Thiết Kế Bánh 3D",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/confirm-design",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "confirm-design"]
+            }
+          }
+        },
+        {
+          "name": "Từ Chối Thiết Kế Bánh 3D",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/1/reject-design?lyDo=Thiết kế chưa phù hợp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "1", "reject-design"],
+              "query": [{ "key": "lyDo", "value": "Thiết kế chưa phù hợp" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Admin – Products (Quản lý sản phẩm)",
+      "item": [
+        {
+          "name": "Lấy DS Sản Phẩm Admin",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products?keyword=&trangThai=&danhMucId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products"],
+              "query": [
+                { "key": "keyword", "value": "" },
+                { "key": "trangThai", "value": "" },
+                { "key": "danhMucId", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xem Chi Tiết Sản Phẩm Admin",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "1"]
+            }
+          }
+        },
+        {
+          "name": "Cảnh Báo Tồn Kho Thấp",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/products/canh-bao-ton-thap",
               "host": ["{{baseUrl}}"],
@@ -46,7 +665,7 @@
           }
         },
         {
-          "name": "Điều chỉnh kho thủ công (Nhập hàng)",
+          "name": "Điều Chỉnh Tồn Kho Thủ Công (Admin only)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -63,42 +682,28 @@
               "path": ["api", "v1", "admin", "products", "1", "dieu-chinh-ton-kho"]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "3. Reviews",
-      "item": [
+        },
         {
-          "name": "Lấy DS Đánh Giá",
+          "name": "Thêm Sản Phẩm Mới (Admin only)",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tenSanPham\": \"Bánh Kem Socola\",\n    \"moTa\": \"Bánh kem socola nguyên chất thơm ngon\",\n    \"donGia\": 350000,\n    \"soLuongTon\": 100,\n    \"nguongCanhBao\": 10,\n    \"danhMucId\": 1,\n    \"trangThai\": \"DANG_BAN\",\n    \"anhSanPham\": \"https://example.com/banh.jpg\"\n}"
+            },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/reviews",
+              "raw": "{{baseUrl}}/api/v1/admin/products",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "reviews"]
+              "path": ["api", "v1", "admin", "products"]
             }
           }
         },
         {
-          "name": "Thống kê Đánh Giá",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/reviews/stats",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "reviews", "stats"]
-            }
-          }
-        },
-        {
-          "name": "Phản hồi Đánh Giá",
+          "name": "Cập Nhật Sản Phẩm (Admin only)",
           "request": {
             "method": "PUT",
             "header": [
@@ -107,7 +712,67 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"phanHoi\": \"Cảm ơn bạn đã phản hồi!\"\n}"
+              "raw": "{\n    \"tenSanPham\": \"Bánh Kem Socola Premium\",\n    \"donGia\": 400000,\n    \"trangThai\": \"DANG_BAN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "1"]
+            }
+          }
+        },
+        {
+          "name": "Xóa Sản Phẩm (Admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Admin – Reviews (Đánh giá)",
+      "item": [
+        {
+          "name": "Lấy DS Đánh Giá",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews"]
+            }
+          }
+        },
+        {
+          "name": "Thống Kê Đánh Giá",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/reviews/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "reviews", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Phản Hồi Đánh Giá",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phanHoi\": \"Cảm ơn bạn đã đánh giá! Chúng tôi sẽ cải thiện dịch vụ.\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/reviews/1/reply",
@@ -120,63 +785,296 @@
           "name": "Ẩn/Hiện Đánh Giá",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/reviews/1/toggle",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "admin", "reviews", "1", "toggle"]
             }
           }
+        },
+        {
+          "name": "Đánh Giá Sản Phẩm (Khách)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"sanPhamId\": 1,\n    \"soSao\": 5,\n    \"binhLuan\": \"Bánh ngon tuyệt vời!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews"]
+            }
+          }
         }
       ]
     },
     {
-      "name": "4. Orders",
+      "name": "10. Vouchers (Mã giảm giá)",
       "item": [
         {
-          "name": "Lấy DS Đơn Hàng (Admin)",
+          "name": "Validate Mã Giảm Giá",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"maCode\": \"SALE10\"\n}"
+            },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/orders",
+              "raw": "{{baseUrl}}/api/v1/vouchers/validate",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "orders"]
+              "path": ["api", "v1", "vouchers", "validate"]
             }
           }
         },
         {
-          "name": "Cập nhật trạng thái",
+          "name": "Lấy DS Mã Giảm Giá (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/discounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "discounts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Loyalty (Điểm thưởng)",
+      "item": [
+        {
+          "name": "Lấy Điểm Tích Lũy",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty"]
+            }
+          }
+        },
+        {
+          "name": "Đổi Điểm Lấy Voucher",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doiDiem\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/redeem",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "redeem"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Admin – Dashboard & Audit",
+      "item": [
+        {
+          "name": "Thống Kê Doanh Thu",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Nhật Ký Hệ Thống (Audit Log)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/audit-log",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "audit-log"]
+            }
+          }
+        },
+        {
+          "name": "Cài Đặt Hệ Thống",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "settings"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Admin – Customers & Staff",
+      "item": [
+        {
+          "name": "DS Khách Hàng",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers"]
+            }
+          }
+        },
+        {
+          "name": "Khóa/Mở Khóa Tài Khoản",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers/1/toggle",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers", "1", "toggle"]
+            }
+          }
+        },
+        {
+          "name": "DS Nhân Viên",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "staff"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Inventory (Tồn kho)",
+      "item": [
+        {
+          "name": "Cảnh Báo Tồn Kho Thấp",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/products/canh-bao-ton-thap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "products", "canh-bao-ton-thap"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Shifts & POS",
+      "item": [
+        {
+          "name": "DS Ca Làm Việc",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shifts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shifts"]
+            }
+          }
+        },
+        {
+          "name": "POS – Tạo Đơn Tại Quầy",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"soDienThoai\": \"0901234567\",\n    \"items\": [\n        {\n            \"sanPhamId\": 1,\n            \"soLuong\": 2,\n            \"donGia\": 250000\n        }\n    ],\n    \"ghiChu\": \"Khách mua tại quầy\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pos/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "pos", "orders"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Payment (Thanh toán)",
+      "item": [
+        {
+          "name": "SePay Webhook (Public)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"Chuyen khoan DH1 thanh toan\",\n    \"transferAmount\": 250000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payment/sepay-webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payment", "sepay-webhook"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Profile (Hồ sơ cá nhân)",
+      "item": [
+        {
+          "name": "Xem Hồ Sơ",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Cập Nhật Hồ Sơ",
           "request": {
             "method": "PUT",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"hoTen\": \"Nguyễn Văn C\",\n    \"soDienThoai\": \"0912345678\"\n}"
+            },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/orders/1/status?trangThaiMoi=DA_XAC_NHAN",
+              "raw": "{{baseUrl}}/api/v1/profile",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "orders", "1", "status"],
-              "query": [
-                { "key": "trangThaiMoi", "value": "DA_XAC_NHAN" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "In Phiếu Đơn Hàng",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/orders/1/print",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "orders", "1", "print"]
+              "path": ["api", "v1", "profile"]
             }
           }
         }
@@ -187,12 +1085,30 @@
     {
       "key": "baseUrl",
       "value": "http://localhost:8080",
-      "type": "string"
+      "type": "string",
+      "description": "URL gốc của backend API. Thay đổi khi deploy production."
     },
     {
       "key": "token",
-      "value": "YOUR_TOKEN_HERE",
-      "type": "string"
+      "value": "",
+      "type": "string",
+      "description": "Access Token JWT. Tự động điền sau khi chạy request Login."
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string",
+      "description": "Refresh Token. Tự động điền sau khi chạy request Login."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Pre-request script: không làm gì mặc định"
+        ]
+      }
     }
   ]
 }

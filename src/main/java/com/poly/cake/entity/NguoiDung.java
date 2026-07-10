@@ -61,7 +61,7 @@ public class NguoiDung {
     private String totpSecret;
 
     @Builder.Default
-    @Column(name = "is_2fa_enabled", nullable = false)
+    @Column(name = "is_2fa_enabled", nullable = false, columnDefinition = "bit default 0")
     private Boolean is2FaEnabled = false;
 
     @PrePersist

@@ -37,3 +37,12 @@ jwt:
 # ở bước kiểm tra "aud" nhằm chống giả mạo token.
 google:
   client-id: "975668760156-2k3s1v811pok7eq207bs181u7l9qk6v7.apps.googleusercontent.com"
+
+
+# T103 – Cấu hình Discord Webhook để gửi thông báo tự động
+# enabled: false → tắt thông báo khi chạy test để không bị spam
+# Điền đúng webhook-url trước khi deploy production!
+discord:
+  enabled: true
+  webhook-url: "https://discord.com/api/webhooks/1524666671481229372/3LKVvoaU6sIM7fga-AymckWSTksILXtQk4Xb7_ahBwPheZIc7hZSXuBp8wR51AiDIcY_"
+

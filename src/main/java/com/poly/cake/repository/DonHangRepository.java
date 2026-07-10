@@ -8,8 +8,10 @@ import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.QueryHint;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,29 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
 
     // Tìm đích danh 1 đơn hàng theo ID và Khách hàng (Dùng để kiểm tra quyền hủy đơn)
     Optional<DonHang> findByIdAndKhachHang(Long id, NguoiDung khachHang);
+
+    // [T105 - Fix N+1] Lấy đơn hàng của 1 khách kèm chi tiết sản phẩm trong 1 câu SQL
+    // Dùng JOIN FETCH để tránh lazy-loading từng chiTietDonHang riêng lẻ
+    // [T105 - Fix N+1] Lấy tất cả đơn hàng của khách kèm chi tiết
+    // Dùng DISTINCT ở tầng Java (PASS_DISTINCT_THROUGH=false) thay vì SQL
+    // để tránh lỗi "text data type cannot be selected as DISTINCT" trên SQL Server
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    @Query("SELECT DISTINCT d FROM DonHang d " +
+            "LEFT JOIN FETCH d.chiTietDonHangs ct " +
+            "LEFT JOIN FETCH ct.sanPham " +
+            "WHERE d.khachHang = :khachHang " +
+            "ORDER BY d.ngayTao DESC")
+    List<DonHang> findByKhachHangWithDetails(@Param("khachHang") NguoiDung khachHang);
+
+    // [T105 - Fix N+1] Lấy 1 đơn hàng theo ID kèm toàn bộ liên kết (khách, nhân viên, chi tiết, sản phẩm)
+    // Dùng JOIN FETCH để tránh hàng loạt lazy-load khi map sang DTO
+    @Query("SELECT d FROM DonHang d " +
+            "LEFT JOIN FETCH d.chiTietDonHangs ct " +
+            "LEFT JOIN FETCH ct.sanPham " +
+            "LEFT JOIN FETCH d.khachHang " +
+            "LEFT JOIN FETCH d.nhanVien " +
+            "WHERE d.id = :id")
+    Optional<DonHang> findByIdWithDetails(@Param("id") Long id);
 
     // Lọc đơn hàng nâng cao cho Admin
     @Query("SELECT d FROM DonHang d WHERE " +

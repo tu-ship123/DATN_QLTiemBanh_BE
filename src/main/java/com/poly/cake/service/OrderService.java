@@ -74,6 +74,9 @@ public class OrderService {
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
 
+    // T103 – Discord webhook: thông báo đơn mới / đơn hủy cho Admin
+    private final DiscordWebhookService discordWebhookService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -222,12 +225,23 @@ public class OrderService {
         // làm rollback cả giao dịch đặt hàng chính, chỉ log lại lỗi để
         // theo dõi/gửi lại thủ công sau.
         // ═══════════════════════════════════════════════════════════════
+        // T072 – Gửi email xác nhận
         try {
             byte[] pdfHoaDon = invoicePdfService.generateInvoicePdf(savedDonHang);
             emailService.sendOrderConfirmationEmail(
                     khachHang.getEmail(), khachHang.getHoTen(), "HD-" + savedDonHang.getId(), pdfHoaDon);
         } catch (Exception e) {
             log.error("Gửi email xác nhận đơn hàng HD-{} thất bại: {}", savedDonHang.getId(), e.getMessage(), e);
+        }
+
+        // T103 – Discord: thông báo không đồng bộ đến Admin (best-effort, không rollback nếu lỗi)
+        try {
+            discordWebhookService.sendNewOrderNotification(
+                    savedDonHang.getId(),
+                    khachHang.getHoTen(),
+                    tongTienThanhToan.doubleValue());
+        } catch (Exception e) {
+            log.warn("Gửi Discord thông báo đơn mới HD-{} thất bại: {}", savedDonHang.getId(), e.getMessage());
         }
 
         return mapToResponseDto(savedDonHang, false);
@@ -239,7 +253,9 @@ public class OrderService {
     public List<OrderDto.Response> getOrdersByUser(String email) {
         NguoiDung khachHang = nguoiDungRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
-        return donHangRepository.findByKhachHangOrderByNgayTaoDesc(khachHang)
+        // [T105 - Fix N+1] Dùng query có JOIN FETCH thay cho findByKhachHangOrderByNgayTaoDesc()
+        // → tải toàn bộ chi tiết + sản phẩm trong 1 câu SQL duy nhất
+        return donHangRepository.findByKhachHangWithDetails(khachHang)
                 .stream().map(d -> mapToResponseDto(d, false)).collect(Collectors.toList());
     }
 
@@ -255,7 +271,9 @@ public class OrderService {
     // 4. XEM CHI TIẾT ĐƠN HÀNG BY ID
     // ═══════════════════════════════════════════════════════════════════════════
     public OrderDto.Response getOrderById(Long id, String email, String role) {
-        DonHang donHang = donHangRepository.findById(id)
+        // [T105 - Fix N+1] Dùng findByIdWithDetails() thay cho findById()
+        // → tải sẵn chi tiết + sản phẩm + khách hàng + nhân viên trong 1 query
+        DonHang donHang = donHangRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + id));
 
         boolean laKhachHang = "ROLE_KHACH_HANG".equals(role) || "KHACH_HANG".equals(role);
@@ -424,13 +442,24 @@ public class OrderService {
         notificationService.notifyNewOrderToAdmins(
                 "❌ Khách hàng đã tự hủy đơn HD-" + id + (daThanhToan ? " (CẦN ĐỐI SOÁT HOÀN TIỀN)" : ""));
 
-        // ── BƯỚC 4: Gửi email xác nhận hủy đơn (best-effort) ──────────────
+        // BƯỚC 4: Gửi email xác nhận hủy đơn (best-effort)
         try {
             emailService.sendOrderCancellationEmail(
                     khachHang.getEmail(), khachHang.getHoTen(), "HD-" + id,
                     updatedDonHang.getLyDoHuy(), soTienHoan);
         } catch (Exception e) {
             log.error("Gửi email hủy đơn HD-{} thất bại: {}", id, e.getMessage(), e);
+        }
+
+        // T103 – Discord: thông báo đơn bị hủy (best-effort)
+        try {
+            discordWebhookService.sendOrderCancelledNotification(
+                    id,
+                    khachHang.getHoTen(),
+                    updatedDonHang.getLyDoHuy(),
+                    daThanhToan);
+        } catch (Exception e) {
+            log.warn("Gửi Discord thông báo hủy đơn HD-{} thất bại: {}", id, e.getMessage());
         }
 
         return mapToResponseDto(updatedDonHang, false);
