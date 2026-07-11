@@ -1,0 +1,82 @@
+package com.poly.cake.service;
+
+import com.poly.cake.dto.DiaChiDto;
+import com.poly.cake.entity.DiaChiGiaoHang;
+import com.poly.cake.exception.MaxAddressLimitException;
+import com.poly.cake.repository.DiaChiGiaoHangRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service
+public class DiaChiGiaoHangService {
+
+    @Autowired
+    private DiaChiGiaoHangRepository diaChiRepository;
+
+    public List<DiaChiGiaoHang> getDanhSachDiaChi(Long userId) {
+        return diaChiRepository.findByNguoiDungId(userId);
+    }
+
+    @Transactional
+    public DiaChiGiaoHang themDiaChi(Long userId, DiaChiDto request) {
+        // Kiểm tra giới hạn 5 địa chỉ
+        if (diaChiRepository.countByNguoiDungId(userId) >= 5) {
+            throw new MaxAddressLimitException("Bạn chỉ được lưu tối đa 5 địa chỉ giao hàng!");
+        }
+
+        DiaChiGiaoHang diaChi = new DiaChiGiaoHang();
+        diaChi.setNguoiDungId(userId);
+        diaChi.setHoTenNguoiNhan(request.getHoTenNguoiNhan());
+        diaChi.setSoDienThoaiNhan(request.getSoDienThoaiNhan());
+        diaChi.setDiaChiChiTiet(request.getDiaChiChiTiet());
+        diaChi.setLaMacDinh(request.getLaMacDinh());
+
+        // Xử lý logic đặt làm mặc định
+        if (Boolean.TRUE.equals(request.getLaMacDinh())) {
+            gỡMặcĐịnhCũ(userId);
+        }
+
+        return diaChiRepository.save(diaChi);
+    }
+
+    @Transactional
+    public DiaChiGiaoHang capNhatDiaChi(Long userId, Long diaChiId, DiaChiDto request) {
+        DiaChiGiaoHang diaChi = diaChiRepository.findById(diaChiId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy địa chỉ!"));
+
+        if (!diaChi.getNguoiDungId().equals(userId)) {
+            throw new RuntimeException("Bạn không có quyền sửa địa chỉ này!");
+        }
+
+        diaChi.setHoTenNguoiNhan(request.getHoTenNguoiNhan());
+        diaChi.setSoDienThoaiNhan(request.getSoDienThoaiNhan());
+        diaChi.setDiaChiChiTiet(request.getDiaChiChiTiet());
+        
+        if (Boolean.TRUE.equals(request.getLaMacDinh()) && !diaChi.getLaMacDinh()) {
+            gỡMặcĐịnhCũ(userId);
+            diaChi.setLaMacDinh(true);
+        }
+
+        return diaChiRepository.save(diaChi);
+    }
+
+    public void xoaDiaChi(Long userId, Long diaChiId) {
+        DiaChiGiaoHang diaChi = diaChiRepository.findById(diaChiId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy địa chỉ!"));
+
+        if (!diaChi.getNguoiDungId().equals(userId)) {
+            throw new RuntimeException("Bạn không có quyền xóa địa chỉ này!");
+        }
+        diaChiRepository.delete(diaChi);
+    }
+
+    private void gỡMặcĐịnhCũ(Long userId) {
+        diaChiRepository.findByNguoiDungIdAndLaMacDinhTrue(userId)
+                .ifPresent(oldDefault -> {
+                    oldDefault.setLaMacDinh(false);
+                    diaChiRepository.save(oldDefault);
+                });
+    }
+}
