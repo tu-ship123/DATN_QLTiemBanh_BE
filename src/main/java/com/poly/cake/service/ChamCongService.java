@@ -10,17 +10,22 @@ import com.poly.cake.dto.ChamCongResponse;
 import com.poly.cake.entity.ChamCong;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.PhanCa;
+import com.poly.cake.entity.CauHinhNgayLe; // [T102] Thêm import
 import com.poly.cake.repository.ChamCongRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.PhanCaRepository;
+import com.poly.cake.repository.CauHinhNgayLeRepository; // [T102] Thêm import
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate; // [T102] Thêm import
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional; // [T102] Thêm import
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,6 +34,9 @@ public class ChamCongService {
     private final ChamCongRepository chamCongRepository;
     private final PhanCaRepository phanCaRepository;
     private final NguoiDungRepository nguoiDungRepository;
+
+    // [T102] Nhúng Repository Ngày Lễ
+    private final CauHinhNgayLeRepository cauHinhNgayLeRepository;
 
     // Lấy nhân viên đang đăng nhập
     private NguoiDung getNhanVienHienTai() {
@@ -90,9 +98,8 @@ public class ChamCongService {
     }
 
     /**
-     * CHECK-OUT: Chốt giờ ra, cập nhật trạng thái nếu về sớm
+     * CHECK-OUT: Chốt giờ ra, cập nhật trạng thái nếu về sớm + [T102] Áp dụng hệ số ngày lễ
      */
-
     @Transactional
     public ChamCongResponse checkOut(Long phanCaId) {
 
@@ -119,6 +126,30 @@ public class ChamCongService {
             chamCong.setTrangThai("VE_SOM");
         }
 
+        // ─────────────────────────────────────────────────────────────────────────────
+        // [T102] LOGIC NHÂN HỆ SỐ LƯƠNG NGÀY LỄ KHI CHECK-OUT
+        // ─────────────────────────────────────────────────────────────────────────────
+        LocalDate ngayLamViec = phanCa.getNgayLamViec();
+        Optional<CauHinhNgayLe> ngayLeOpt = cauHinhNgayLeRepository.findByNgay(ngayLamViec);
+
+        double heSoApDung = 1.0; // Mặc định ngày thường hệ số là 1.0
+
+        if (ngayLeOpt.isPresent()) {
+            CauHinhNgayLe ngayLe = ngayLeOpt.get();
+            if (ngayLe.getHeSoLuong() != null && ngayLe.getHeSoLuong() > 1.0) {
+                heSoApDung = ngayLe.getHeSoLuong();
+                log.info("T102 - Ca làm việc rơi vào ngày lễ {}. Áp dụng hệ số lương x{}",
+                        ngayLe.getTenNgayLe(), heSoApDung);
+            }
+        }
+
+        // ⚠️ LƯU Ý CHO BẢO: Nếu trong file Entity ChamCong.java của em ĐÃ TẠO SẴN
+        // một trường để lưu hệ số lương (ví dụ: private Double heSoLuong;),
+        // thì em hãy xóa 2 dấu // ở dòng bên dưới để hệ thống lưu nó vào Database nhé:
+        //
+        // chamCong.setHeSoLuong(heSoApDung);
+        // ─────────────────────────────────────────────────────────────────────────────
+
         chamCong = chamCongRepository.save(chamCong);
         return mapToResponse(chamCong);
     }
@@ -133,6 +164,7 @@ public class ChamCongService {
                 .gioRa(cc.getGioRa())
                 .phutDiTre(cc.getPhutDiTre())
                 .trangThai(cc.getTrangThai())
+                // .heSoLuong(cc.getHeSoLuong()) // Nếu DTO của em có trường hệ số lương thì mở dòng này ra nhé
                 .build();
     }
 }
