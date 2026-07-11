@@ -48,7 +48,7 @@ public class BackupService {
     private void sendEmailReport(String status, String messageBody) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo("admin@chocopine.vn"); // Đổi thành email người nhận (Lead/Admin)
+            message.setTo("baonhts02135@gmail.com"); // Đổi thành email người nhận (Lead/Admin)
             message.setSubject("[PolyCake] Báo cáo Auto-Backup 2AM - " + status);
             message.setText(messageBody);
             mailSender.send(message);
