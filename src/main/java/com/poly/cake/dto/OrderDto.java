@@ -69,6 +69,8 @@ public class OrderDto {
         private LocalDate ngayGiaoHang;
         private LocalDateTime ngayTao;
         private Double phiShip;
+        private Double soTienPhuThu;
+
         private Double tongTien;
         private String trangThai;
         private String ghiChu;

@@ -33,8 +33,10 @@ public class ChamCong {
 
     private LocalDateTime gioRa;
 
+    @Builder.Default
     private Integer phutDiTre = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String trangThai = "DUNG_GIO"; // DUNG_GIO, DI_TRE, VANG_MAT, VE_SOM
 
@@ -78,4 +80,17 @@ public class ChamCong {
     protected void onCreate() {
         ngayTao = LocalDateTime.now();
     }
+
+    /**
+     * T102 – Hệ số lương áp dụng cho ca này, được tự động lấy từ cấu hình
+     * ngày lễ (NgayLeLuong) tại thời điểm check-in theo ngày làm việc của ca.
+     * 1.0 = ngày thường, 2.0 = x2, 3.0 = x3...
+     *
+     * columnDefinition có DEFAULT 1.0 để SQL Server chấp nhận ALTER TABLE
+     * thêm cột NOT NULL vào bảng cham_cong đã có sẵn dữ liệu (nếu không có
+     * DEFAULT, SQL Server sẽ từ chối ALTER TABLE khi bảng không rỗng).
+     */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "numeric(4,2) DEFAULT 1.0")
+    private BigDecimal heSoLuong = BigDecimal.ONE;
 }

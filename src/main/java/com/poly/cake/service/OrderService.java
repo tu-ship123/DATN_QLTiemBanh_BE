@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.poly.cake.dto.OrderDto;
 import com.poly.cake.dto.OrderProcessDto;
-import com.poly.cake.entity.CauHinhNgayLe; // [T102] Thêm import
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.GioHang;
@@ -17,7 +16,6 @@ import com.poly.cake.entity.VoucherKhachHang;
 import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ForbiddenException;
 import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.repository.CauHinhNgayLeRepository; // [T102] Thêm import
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.GioHangRepository;
@@ -33,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -61,8 +60,8 @@ public class OrderService {
     private final InvoicePdfService invoicePdfService;
     private final DiscordWebhookService discordWebhookService;
 
-    // [T102] Khai báo Repository Ngày lễ
-    private final CauHinhNgayLeRepository cauHinhNgayLeRepository;
+    // T102 – Tính % phụ thu tự động theo ngày giao hàng (dịp đặc biệt)
+    private final PhuThuDonHangService phuThuDonHangService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -106,27 +105,25 @@ public class OrderService {
         double phiShip = (tongTienHang >= 500_000) ? 0.0 : 30_000.0;
 
         // ─────────────────────────────────────────────────────────────────────────────
-        // [T102] LOGIC PHỤ THU NGÀY LỄ
+        // T102 – LOGIC PHỤ THU DỊP ĐẶC BIỆT
+        // Tính theo NGÀY GIAO HÀNG (request.getNgayGiaoHang()), không phải ngày đặt hàng,
+        // vì bánh thường đặt trước nhiều ngày để giao đúng dịp (VD: đặt trước 1 tuần
+        // để giao đúng Valentine). Nếu nhiều dịp đặc biệt trùng ngày thì cộng dồn %.
         // ─────────────────────────────────────────────────────────────────────────────
-        LocalDate homNay = LocalDate.now();
-        double tienPhuThu = 0.0;
+        BigDecimal phanTramPhuThu = phuThuDonHangService.tinhPhanTramPhuThu(request.getNgayGiaoHang());
+        BigDecimal soTienPhuThu = BigDecimal.valueOf(tongTienHang)
+                .multiply(phanTramPhuThu)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        Optional<CauHinhNgayLe> ngayLeOpt = cauHinhNgayLeRepository.findByNgay(homNay);
-        if (ngayLeOpt.isPresent()) {
-            CauHinhNgayLe ngayLe = ngayLeOpt.get();
-            if (ngayLe.getPhanTramPhuThu() != null && ngayLe.getPhanTramPhuThu() > 0) {
-                // Tiền phụ thu = Tổng tiền hàng gốc * (% phụ thu / 100)
-                tienPhuThu = tongTienHang * (ngayLe.getPhanTramPhuThu() / 100.0);
-                log.info("T102 - Áp dụng phụ thu {}% cho ngày lễ {}. Số tiền đội lên: {}",
-                        ngayLe.getPhanTramPhuThu(), ngayLe.getTenNgayLe(), tienPhuThu);
-            }
+        if (soTienPhuThu.compareTo(BigDecimal.ZERO) > 0) {
+            log.info("T102 - Đơn hàng có ngày giao {} rơi vào dịp đặc biệt, phụ thu {}%, số tiền đội lên: {}",
+                    request.getNgayGiaoHang(), phanTramPhuThu, soTienPhuThu);
         }
 
-        // Cộng thêm tiền phụ thu vào tổng tiền thanh toán cuối cùng
         BigDecimal tongTienThanhToan = BigDecimal.valueOf(tongTienHang)
                 .subtract(soTienGiam)
                 .add(BigDecimal.valueOf(phiShip))
-                .add(BigDecimal.valueOf(tienPhuThu));
+                .add(soTienPhuThu);
         // ─────────────────────────────────────────────────────────────────────────────
 
         String ghiChuCuoiCung;
@@ -141,6 +138,7 @@ public class OrderService {
         donHang.setDiaChiGiao(request.getDiaChiGiaoHang());
         donHang.setNgayGiaoDuKien(request.getNgayGiaoHang().atTime(12, 0));
         donHang.setTongTien(tongTienThanhToan);
+        donHang.setSoTienPhuThu(soTienPhuThu);
         donHang.setGhiChu(ghiChuCuoiCung);
         donHang.setTrangThai(TrangThaiDonHang.CHO_XAC_NHAN);
         donHang.setNguonDon("ONLINE");
@@ -473,6 +471,9 @@ public class OrderService {
         if (donHang.getTongTien() != null) {
             dto.setTongTien(donHang.getTongTien().doubleValue());
         }
+
+        dto.setSoTienPhuThu(donHang.getSoTienPhuThu() != null
+                ? donHang.getSoTienPhuThu().doubleValue() : 0.0);
 
         dto.setTrangThai(donHang.getTrangThai().name());
         dto.setGhiChu(donHang.getGhiChu());

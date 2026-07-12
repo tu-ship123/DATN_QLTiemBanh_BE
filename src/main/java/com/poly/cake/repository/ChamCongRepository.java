@@ -13,6 +13,7 @@ import java.util.List;
 
 @Repository
 public interface ChamCongRepository extends JpaRepository<ChamCong, Long> {
+
     Optional<ChamCong> findByPhanCa(PhanCa phanCa);
     boolean existsByPhanCa(PhanCa phanCa);
     @Query("SELECT cc FROM ChamCong cc WHERE cc.phanCa.ngayLamViec = :ngay AND cc.loaiBaoCao IS NOT NULL")

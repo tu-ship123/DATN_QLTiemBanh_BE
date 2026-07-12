@@ -39,6 +39,7 @@ public class PosOrderDto {
     public static class Response {
         private Long donHangId;
         private BigDecimal tongTien;
+        private BigDecimal soTienPhuThu;
         private String trangThai;
         private String nguonDon;
         private String vietQrUrl;     // Đường dẫn ảnh QR để FE hiển thị quét mã
