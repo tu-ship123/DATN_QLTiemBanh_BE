@@ -37,6 +37,7 @@ public class DonHang {
     @JoinColumn(name = "voucher_khach_hang_id")
     private VoucherKhachHang voucherKhachHang;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TrangThaiDonHang trangThai = TrangThaiDonHang.CHO_XAC_NHAN;
@@ -44,8 +45,18 @@ public class DonHang {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal tongTien;
 
+    @Builder.Default
     @Column(precision = 12, scale = 2)
     private BigDecimal soTienCoc = BigDecimal.ZERO;
+
+    /**
+     * T102 – Số tiền phụ thu tự động cộng thêm nếu ngày giao hàng (hoặc ngày
+     * tạo đơn với đơn POS) rơi vào dịp đặc biệt đã cấu hình (xem PhuThuDonHang).
+     * = 0 nếu không rơi vào dịp nào.
+     */
+    @Builder.Default
+    @Column(precision = 12, scale = 2)
+    private BigDecimal soTienPhuThu = BigDecimal.ZERO;
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String thietKeBanhJson;
@@ -75,10 +86,12 @@ public class DonHang {
     // giao hàng quét mã vạch/mã đơn trên bill lúc giao (xem AdminOrderService#scanDelivery)
     private LocalDateTime thoiDiemGiao;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String nguonDon = "ONLINE"; // ONLINE, POS
 
     // Mapping 1-Nhiều với bảng chi tiết đơn hàng
+    @Builder.Default
     @OneToMany(mappedBy = "donHang", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChiTietDonHang> chiTietDonHangs = new ArrayList<>();
 
@@ -91,4 +104,5 @@ public class DonHang {
     protected void onUpdate() {
         ngayCapNhat = LocalDateTime.now();
     }
+
 }

@@ -18,9 +18,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,9 @@ public class ChamCongService {
     private final PhanCaRepository phanCaRepository;
     private final NguoiDungRepository nguoiDungRepository;
 
+    // T102 – Lấy hệ số lương (x2, x3...) áp dụng theo ngày làm việc của ca
+    private final NgayLeLuongService ngayLeLuongService;
+
     // Lấy nhân viên đang đăng nhập
     private NguoiDung getNhanVienHienTai() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -38,7 +43,10 @@ public class ChamCongService {
     }
 
     /**
-     * CHECK-IN: Nhân viên chọn ca đã phân, ghi nhận giờ vào, tính phút đi trễ
+     * CHECK-IN: Nhân viên chọn ca đã phân, ghi nhận giờ vào, tính phút đi trễ.
+     * T102 – Đồng thời tự động tra hệ số lương của ngày làm việc (x2/x3 nếu
+     * là ngày lễ đã cấu hình) và lưu luôn vào bản ghi chấm công. Vì ngày làm
+     * việc của ca là cố định, không cần tính lại lúc check-out.
      */
     @Transactional
     public ChamCongResponse checkIn(StaffCheckinRequest request) {
@@ -73,13 +81,16 @@ public class ChamCongService {
             trangThai = "DI_TRE";
         }
 
+        // T102 – Tự động lấy hệ số lương của ngày làm việc (x2/x3 nếu là ngày lễ đã cấu hình)
+        BigDecimal heSoLuong = ngayLeLuongService.layHeSoLuong(phanCa.getNgayLamViec());
+
         ChamCong chamCong = ChamCong.builder()
                 .phanCa(phanCa)
                 .gioVao(gioVaoThucTe)
                 .phutDiTre(phutDiTre)
                 .trangThai(trangThai)
+                .heSoLuong(heSoLuong)
                 .build();
-
         chamCong = chamCongRepository.save(chamCong);
 
         // Cập nhật trạng thái phân ca thành XAC_NHAN
@@ -90,9 +101,10 @@ public class ChamCongService {
     }
 
     /**
-     * CHECK-OUT: Chốt giờ ra, cập nhật trạng thái nếu về sớm
+     * CHECK-OUT: Chốt giờ ra, cập nhật trạng thái nếu về sớm.
+     * Hệ số lương đã được xác định và lưu sẵn từ lúc check-in (xem checkIn()),
+     * không cần tính lại ở đây vì ngày làm việc của ca không đổi.
      */
-
     @Transactional
     public ChamCongResponse checkOut(Long phanCaId) {
 
@@ -133,6 +145,8 @@ public class ChamCongService {
                 .gioRa(cc.getGioRa())
                 .phutDiTre(cc.getPhutDiTre())
                 .trangThai(cc.getTrangThai())
+                .heSoLuong(cc.getHeSoLuong())
+                .laNgayLe(cc.getHeSoLuong() != null && cc.getHeSoLuong().compareTo(BigDecimal.ONE) > 0)
                 .build();
     }
 }

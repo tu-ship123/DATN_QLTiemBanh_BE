@@ -16,6 +16,9 @@ public class ChamCongResponse {
     private LocalDateTime gioRa;
     private Integer phutDiTre;
     private String trangThai;
+    // T102 – Hệ số lương của ca (1.0 = ngày thường, 2.0 = x2, 3.0 = x3...)
+    private BigDecimal heSoLuong;
+    private Boolean laNgayLe;
 
     // ── T062: Dữ liệu kết ca (chỉ có giá trị sau khi gọi kết ca) ────────────
     private LocalDateTime thoiDiemKetCa;

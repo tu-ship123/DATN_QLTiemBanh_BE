@@ -32,6 +32,8 @@ public class PosOrderService {
     private final ChiTietDonHangRepository chiTietDonHangRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final SanPhamRepository sanPhamRepository;
+    // T102 – Tính % phụ thu tự động theo ngày (đơn POS mua ngay nên tính theo ngày hôm nay)
+    private final PhuThuDonHangService phuThuDonHangService;
 
     @Transactional
     public PosOrderDto.Response createPosOrder(PosOrderDto.Request request, String emailNhanVien) {
@@ -102,6 +104,15 @@ public class PosOrderService {
         }
 
         chiTietDonHangRepository.saveAll(chiTietList);
+
+        // T102 – Tự động cộng phụ thu nếu hôm nay rơi vào dịp đặc biệt đã cấu hình
+        BigDecimal phanTramPhuThu = phuThuDonHangService.tinhPhanTramPhuThu(java.time.LocalDate.now());
+        BigDecimal soTienPhuThu = totalAmount
+                .multiply(phanTramPhuThu)
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        totalAmount = totalAmount.add(soTienPhuThu);
+
+        savedDonHang.setSoTienPhuThu(soTienPhuThu);
         savedDonHang.setTongTien(totalAmount);
         donHangRepository.save(savedDonHang);
 
@@ -121,6 +132,7 @@ public class PosOrderService {
         PosOrderDto.Response response = new PosOrderDto.Response();
         response.setDonHangId(savedDonHang.getId());
         response.setTongTien(totalAmount);
+        response.setSoTienPhuThu(soTienPhuThu);
 
         // Đã sửa: Trích xuất chuỗi String từ Enum để map với DTO
         response.setTrangThai(savedDonHang.getTrangThai().name());
