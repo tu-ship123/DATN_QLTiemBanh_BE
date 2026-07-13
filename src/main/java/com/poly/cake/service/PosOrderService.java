@@ -6,11 +6,13 @@ import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.dto.PosOrderDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.ChiTietDonHang;
+import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
 import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
+import com.poly.cake.repository.MaGiamGiaRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,6 +35,7 @@ public class PosOrderService {
     private final ChiTietDonHangRepository chiTietDonHangRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final SanPhamRepository sanPhamRepository;
+    private final MaGiamGiaRepository maGiamGiaRepository;
     // T102 – Tính % phụ thu tự động theo ngày (đơn POS mua ngay nên tính theo ngày hôm nay)
     private final PhuThuDonHangService phuThuDonHangService;
 
@@ -105,16 +109,42 @@ public class PosOrderService {
 
         chiTietDonHangRepository.saveAll(chiTietList);
 
+        BigDecimal tienHangGoc = totalAmount; // Tiền hàng gốc, dùng để kiểm tra điều kiện mã & tính phụ thu
+
+        // 4b. Áp mã giảm giá công khai nếu nhân viên có nhập (không bắt buộc)
+        MaGiamGia maGiamGiaApDung = null;
+        BigDecimal soTienGiam = BigDecimal.ZERO;
+        String maCodeNhap = request.getMaGiamGia();
+
+        if (maCodeNhap != null && !maCodeNhap.isBlank()) {
+            maGiamGiaApDung = maGiamGiaRepository.findByMaCode(maCodeNhap.trim().toUpperCase())
+                    .orElseThrow(() -> new BusinessException("Mã giảm giá \"" + maCodeNhap + "\" không tồn tại!"));
+
+            kiemTraMaGiamGiaHopLe(maGiamGiaApDung, tienHangGoc);
+            soTienGiam = tinhSoTienGiam(maGiamGiaApDung, tienHangGoc);
+
+            totalAmount = totalAmount.subtract(soTienGiam);
+            savedDonHang.setMaGiamGia(maGiamGiaApDung);
+        }
+
         // T102 – Tự động cộng phụ thu nếu hôm nay rơi vào dịp đặc biệt đã cấu hình
+        // (tính trên tiền hàng GỐC, trước khi trừ giảm giá — nhất quán với đơn ONLINE)
         BigDecimal phanTramPhuThu = phuThuDonHangService.tinhPhanTramPhuThu(java.time.LocalDate.now());
-        BigDecimal soTienPhuThu = totalAmount
+        BigDecimal soTienPhuThu = tienHangGoc
                 .multiply(phanTramPhuThu)
-                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         totalAmount = totalAmount.add(soTienPhuThu);
 
         savedDonHang.setSoTienPhuThu(soTienPhuThu);
         savedDonHang.setTongTien(totalAmount);
         donHangRepository.save(savedDonHang);
+
+        // 4c. Nếu áp mã thành công thì cộng lượt đã dùng (chỉ commit sau khi đơn đã lưu thành công)
+        if (maGiamGiaApDung != null) {
+            maGiamGiaApDung.setSoLuotDaDung(
+                    (maGiamGiaApDung.getSoLuotDaDung() == null ? 0 : maGiamGiaApDung.getSoLuotDaDung()) + 1);
+            maGiamGiaRepository.save(maGiamGiaApDung);
+        }
 
         // 5. TÍCH HỢP VIETQR (Bắn link ảnh QR động thông qua dịch vụ miễn phí của VietQR.io)
         String bankId = "vcb";
@@ -126,11 +156,14 @@ public class PosOrderService {
                 bankId, accountNo, template, totalAmount.toBigInteger().toString(), addInfo);
 
         // 6. BUILD BIÊN LAI IN NHIỆT (Receipt) cho máy in tại quầy
-        String receiptText = buildReceiptTemplate(savedDonHang, receiptItems.toString(), nhanVien.getHoTen());
+        String receiptText = buildReceiptTemplate(savedDonHang, receiptItems.toString(), nhanVien.getHoTen(), soTienGiam, maGiamGiaApDung);
 
         // 7. Map dữ liệu trả về cho Response DTO
         PosOrderDto.Response response = new PosOrderDto.Response();
         response.setDonHangId(savedDonHang.getId());
+        response.setTongTienHang(tienHangGoc);
+        response.setSoTienGiam(soTienGiam);
+        response.setMaGiamGiaApDung(maGiamGiaApDung != null ? maGiamGiaApDung.getMaCode() : null);
         response.setTongTien(totalAmount);
         response.setSoTienPhuThu(soTienPhuThu);
 
@@ -187,8 +220,12 @@ public class PosOrderService {
     }
 
     // Hàm phụ định dạng văn bản in hóa đơn cân đối
-    private String buildReceiptTemplate(DonHang donHang, String itemsText, String tenNhanVien) {
+    private String buildReceiptTemplate(DonHang donHang, String itemsText, String tenNhanVien,
+                                         BigDecimal soTienGiam, MaGiamGia maGiamGiaApDung) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String dongGiamGia = (maGiamGiaApDung != null && soTienGiam.compareTo(BigDecimal.ZERO) > 0)
+                ? "Mã giảm giá (" + maGiamGiaApDung.getMaCode() + "): -" + soTienGiam + " VND\n"
+                : "";
         return "======= TIỆM BÁNH POLY CAKE =======" + "\n" +
                 "Đ/C: Toà nhà FPT Polytechnic, HCM" + "\n" +
                 "HÓA ĐƠN BÁN HÀNG TẠI QUẦY" + "\n" +
@@ -198,9 +235,43 @@ public class PosOrderService {
                 "Thu ngân: " + tenNhanVien + "\n" +
                 "-----------------------------------" + "\n" +
                 itemsText +
+                dongGiamGia +
                 "-----------------------------------" + "\n" +
                 "TỔNG TIỀN: " + donHang.getTongTien().toString() + " VND\n" +
                 "===================================" + "\n" +
                 "  CẢM ƠN QUÝ KHÁCH - HẸN GẶP LẠI!  " + "\n";
+    }
+
+    // ── Kiểm tra & tính mã giảm giá công khai (giống logic ở OrderService, dùng lại cho POS) ──
+
+    private void kiemTraMaGiamGiaHopLe(MaGiamGia maGiamGia, BigDecimal tongTienHang) {
+        if (!Boolean.TRUE.equals(maGiamGia.getHoatDong())) {
+            throw new BusinessException("Mã giảm giá \"" + maGiamGia.getMaCode() + "\" hiện không còn hoạt động!");
+        }
+        if (maGiamGia.getNgayHetHan() != null && maGiamGia.getNgayHetHan().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Mã giảm giá \"" + maGiamGia.getMaCode() + "\" đã hết hạn!");
+        }
+        if (maGiamGia.getSoLuotToiDa() != null
+                && maGiamGia.getSoLuotDaDung() != null
+                && maGiamGia.getSoLuotDaDung() >= maGiamGia.getSoLuotToiDa()) {
+            throw new BusinessException("Mã giảm giá \"" + maGiamGia.getMaCode() + "\" đã hết lượt sử dụng!");
+        }
+        if (maGiamGia.getDonHangToiThieu() != null
+                && tongTienHang.compareTo(maGiamGia.getDonHangToiThieu()) < 0) {
+            throw new BusinessException(
+                    "Hoá đơn cần tối thiểu " + maGiamGia.getDonHangToiThieu()
+                            + " để áp dụng mã \"" + maGiamGia.getMaCode() + "\"!");
+        }
+    }
+
+    private BigDecimal tinhSoTienGiam(MaGiamGia maGiamGia, BigDecimal tongTienHang) {
+        BigDecimal soTienGiam;
+        if ("PHAN_TRAM".equals(maGiamGia.getLoaiGiamGia())) {
+            soTienGiam = tongTienHang.multiply(maGiamGia.getGiaTriGiam())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        } else {
+            soTienGiam = maGiamGia.getGiaTriGiam();
+        }
+        return soTienGiam.min(tongTienHang);
     }
 }

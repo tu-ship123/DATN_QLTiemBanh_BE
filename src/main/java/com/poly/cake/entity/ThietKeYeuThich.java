@@ -21,6 +21,9 @@ public class ThietKeYeuThich {
     @Column(name = "thiet_ke_banh_json", nullable = false, columnDefinition = "TEXT")
     private String thietKeBanhJson;
 
+    @Column(name = "gia")
+    private Double gia;
+
     @Column(name = "ngay_tao")
     private LocalDateTime ngayTao = LocalDateTime.now();
 }

@@ -23,6 +23,10 @@ public class PosOrderDto {
         private List<ItemRequest> items;
 
         private String phuongThucThanhToan; // "TIEN_MAT" (mặc định) hoặc "VIET_QR"
+
+        // Mã giảm giá công khai (vd "GIAM10") nhân viên nhập ở quầy — không bắt buộc.
+        // Không hỗ trợ voucher cá nhân (đổi điểm) vì đơn POS gắn theo khách vãng lai/không có tài khoản cố định.
+        private String maGiamGia;
     }
 
     @Data
@@ -38,6 +42,9 @@ public class PosOrderDto {
     @Data
     public static class Response {
         private Long donHangId;
+        private BigDecimal tongTienHang;   // Tiền hàng trước khi trừ giảm giá / cộng phụ thu
+        private BigDecimal soTienGiam;     // Số tiền đã giảm nhờ mã giảm giá (0 nếu không áp mã)
+        private String maGiamGiaApDung;    // Mã đã áp dụng thành công (null nếu không có)
         private BigDecimal tongTien;
         private BigDecimal soTienPhuThu;
         private String trangThai;

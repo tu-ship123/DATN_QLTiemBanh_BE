@@ -297,3 +297,16 @@ FROM sys.indexes i
 WHERE i.object_id = OBJECT_ID('nguoi_dung')
   AND i.name IN ('UQ_nguoi_dung_google_id_filtered', 'UQ_nguoi_dung_email', 'UQ_nguoi_dung_so_dien_thoai');
 GO
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PHẦN 008: Thêm cột gia (giá tham khảo) vào bảng thiet_ke_yeu_thich
+-- Phục vụ API GET/POST /api/v1/wishlist/thiet-ke — cho phép WishlistPage.vue
+-- hiển thị lại đúng giá đã tính khi khách lưu thiết kế bánh 3D.
+-- ═══════════════════════════════════════════════════════════════════════════
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('thiet_ke_yeu_thich') AND name = 'gia'
+)
+BEGIN
+    ALTER TABLE thiet_ke_yeu_thich ADD gia FLOAT NULL;
+END
+GO
