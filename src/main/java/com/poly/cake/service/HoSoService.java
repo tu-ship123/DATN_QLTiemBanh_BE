@@ -155,6 +155,7 @@ public class HoSoService {
         response.setQuyen(user.getQuyen());
         response.setTrangThai(user.getTrangThai());
         response.setNgayTao(user.getNgayTao());
+        response.setIs2FaEnabled(Boolean.TRUE.equals(user.getIs2FaEnabled()));
         return response;
     }
 }

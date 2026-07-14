@@ -24,6 +24,16 @@ public class StaffController {
         return ResponseEntity.ok(staffService.getAllStaffs());
     }
 
+    // Hiệu suất nhân viên: số đơn xử lý + doanh thu mang lại, lọc được theo khoảng ngày
+    @GetMapping("/hieu-suat")
+    public ResponseEntity<?> getHieuSuat(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate tuNgay,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate denNgay) {
+        java.time.LocalDateTime tu = tuNgay != null ? tuNgay.atStartOfDay() : null;
+        java.time.LocalDateTime den = denNgay != null ? denNgay.atTime(23, 59, 59) : null;
+        return ResponseEntity.ok(staffService.getHieuSuat(tu, den));
+    }
+
     @PostMapping
     public ResponseEntity<?> createStaff(@Valid @RequestBody StaffDto.CreateRequest request) {
         // Không cần try-catch nữa! GlobalExceptionHandler sẽ tự bắt lỗi nếu có.

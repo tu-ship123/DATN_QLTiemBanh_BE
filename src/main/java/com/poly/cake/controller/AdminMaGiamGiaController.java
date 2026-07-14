@@ -32,6 +32,11 @@ public class AdminMaGiamGiaController {
         );
     }
 
+    @GetMapping("/{id}/usage")
+    public ResponseEntity<?> getUsage(@PathVariable Long id) {
+        return ResponseEntity.ok(adminMaGiamGiaService.getUsage(id));
+    }
+
     @PostMapping
     public ResponseEntity<?> create(
             @Valid @RequestBody MaGiamGiaDto.Request request) {

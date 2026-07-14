@@ -3,17 +3,24 @@ package com.poly.cake.service;
 import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 
+import com.poly.cake.dto.NhanVienHieuSuatDto;
 import com.poly.cake.dto.StaffDto;
+import com.poly.cake.dto.HieuSuatNhanVienDto;
 import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j; // Import thư viện này
 
 @Slf4j
@@ -22,6 +29,7 @@ import lombok.extern.slf4j.Slf4j; // Import thư viện này
 public class StaffService {
 
     private final NguoiDungRepository nguoiDungRepository;
+    private final DonHangRepository donHangRepository;
 
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
@@ -85,5 +93,45 @@ public class StaffService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên!"));
         existingStaff.setTrangThai("BI_KHOA");// 0: Khóa tài khoản
         nguoiDungRepository.save(existingStaff);
+    }
+
+    // 5. Hiệu suất nhân viên (Admin) - GET /api/v1/admin/staff/hieu-suat
+    // Ghép danh sách toàn bộ nhân viên với số đơn xử lý + doanh thu trong khoảng thời gian (nếu có),
+    // rồi tính % hiệu suất tương đối so với nhân viên có doanh thu cao nhất.
+    public List<NhanVienHieuSuatDto> getHieuSuat(LocalDateTime tuNgay, LocalDateTime denNgay) {
+        List<NguoiDung> nhanViens = nguoiDungRepository.findByQuyen("NHAN_VIEN");
+
+        List<HieuSuatNhanVienDto> thongKe = donHangRepository.getHieuSuatNhanVienTheoKhoang(tuNgay, denNgay);
+        Map<Long, HieuSuatNhanVienDto> thongKeMap = thongKe.stream()
+                .collect(Collectors.toMap(HieuSuatNhanVienDto::getNhanVienId, dto -> dto));
+
+        BigDecimal doanhThuCaoNhat = thongKe.stream()
+                .map(HieuSuatNhanVienDto::getTongDoanhThu)
+                .filter(java.util.Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        return nhanViens.stream().map(nv -> {
+            HieuSuatNhanVienDto tk = thongKeMap.get(nv.getId());
+            BigDecimal doanhThu = tk != null && tk.getTongDoanhThu() != null ? tk.getTongDoanhThu() : BigDecimal.ZERO;
+            Long soDon = tk != null ? tk.getTongSoDon() : 0L;
+
+            int hieuSuat = 0;
+            if (doanhThuCaoNhat.compareTo(BigDecimal.ZERO) > 0) {
+                hieuSuat = doanhThu.multiply(BigDecimal.valueOf(100))
+                        .divide(doanhThuCaoNhat, 0, java.math.RoundingMode.HALF_UP)
+                        .intValue();
+            }
+
+            return new NhanVienHieuSuatDto(
+                    nv.getId(),
+                    nv.getHoTen(),
+                    nv.getEmail(),
+                    "HOAT_DONG".equals(nv.getTrangThai()),
+                    soDon,
+                    doanhThu,
+                    hieuSuat
+            );
+        }).sorted((a, b) -> b.getDoanhThu().compareTo(a.getDoanhThu())).collect(Collectors.toList());
     }
 }

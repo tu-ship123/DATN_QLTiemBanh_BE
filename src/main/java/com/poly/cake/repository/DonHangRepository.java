@@ -101,5 +101,20 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
             "WHERE (:maCode IS NULL OR m.maCode = :maCode) " +
             "ORDER BY m.maCode, d.ngayTao DESC")
     List<VoucherUsageDto> getVoucherUsage(@Param("maCode") String maCode);
+
+    // Danh sách đơn hàng đã áp dụng 1 mã giảm giá cụ thể (dùng cho trang lịch sử dùng voucher)
+    @Query("SELECT d FROM DonHang d JOIN FETCH d.khachHang WHERE d.maGiamGia.id = :maGiamGiaId ORDER BY d.ngayTao DESC")
+    List<DonHang> findByMaGiamGiaId(@Param("maGiamGiaId") Long maGiamGiaId);
+
+    // T-ADMIN: Hiệu suất nhân viên có thể lọc theo khoảng ngày, dùng cho trang Hiệu suất nhân viên (Admin)
+    @Query("SELECT new com.poly.cake.dto.HieuSuatNhanVienDto(nv.id, nv.hoTen, COUNT(d.id), COALESCE(SUM(d.tongTien), 0)) " +
+            "FROM DonHang d JOIN d.nhanVien nv " +
+            "WHERE d.trangThai IN ('HOAN_THANH', 'DA_GIAO', 'DA_THANH_TOAN') " +
+            "AND (:tuNgay IS NULL OR d.ngayTao >= :tuNgay) " +
+            "AND (:denNgay IS NULL OR d.ngayTao <= :denNgay) " +
+            "GROUP BY nv.id, nv.hoTen " +
+            "ORDER BY SUM(d.tongTien) DESC")
+    List<HieuSuatNhanVienDto> getHieuSuatNhanVienTheoKhoang(@Param("tuNgay") LocalDateTime tuNgay,
+                                                             @Param("denNgay") LocalDateTime denNgay);
 }
 

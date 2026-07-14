@@ -4,6 +4,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,6 +16,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reports")
+// LƯU Ý BẢO MẬT: path "/api/reports/**" không khớp rule "/api/v1/admin/**" trong
+// SecurityConfig -> nếu thiếu @PreAuthorize thì bất kỳ user đã đăng nhập nào (kể cả
+// khách hàng) cũng xem được doanh thu, bảng lương nhân viên, đối soát giao dịch.
+@PreAuthorize("hasRole('ADMIN')")
 public class ReportController {
 
     private final ReportService reportService;

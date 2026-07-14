@@ -4,8 +4,10 @@ import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 
 import com.poly.cake.dto.MaGiamGiaDto;
+import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.MaGiamGiaRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +31,8 @@ public class AdminMaGiamGiaService {
     private final MaGiamGiaRepository maGiamGiaRepository;
 
     private final NguoiDungRepository nguoiDungRepository;
+
+    private final DonHangRepository donHangRepository;
 
     private final EmailService emailService;
 
@@ -135,6 +143,53 @@ public class AdminMaGiamGiaService {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
         maGiamGiaRepository.delete(voucher);
+    }
+
+    // LỊCH SỬ SỬ DỤNG 1 VOUCHER - GET /api/v1/admin/vouchers/{id}/usage
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUsage(Long id) {
+        MaGiamGia voucher = maGiamGiaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+
+        List<DonHang> donHangs = donHangRepository.findByMaGiamGiaId(id);
+
+        boolean conHan = voucher.getNgayHetHan() != null && voucher.getNgayHetHan().isAfter(LocalDateTime.now());
+        boolean dangHoatDong = Boolean.TRUE.equals(voucher.getHoatDong()) && conHan;
+
+        Map<String, Object> voucherInfo = new HashMap<>();
+        voucherInfo.put("code", voucher.getMaCode());
+        voucherInfo.put("name", "PHAN_TRAM".equals(voucher.getLoaiGiamGia())
+                ? "Giảm " + voucher.getGiaTriGiam().stripTrailingZeros().toPlainString() + "%"
+                : "Giảm " + voucher.getGiaTriGiam().stripTrailingZeros().toPlainString() + "đ");
+        voucherInfo.put("limit", voucher.getSoLuotToiDa());
+        voucherInfo.put("statusType", dangHoatDong ? "success" : "default");
+        voucherInfo.put("status", dangHoatDong ? "Đang hoạt động" : (conHan ? "Đã tắt" : "Đã hết hạn"));
+
+        List<Map<String, Object>> lichSu = donHangs.stream().map(d -> {
+            NguoiDung kh = d.getKhachHang();
+            BigDecimal soTienGiam;
+            if ("SO_TIEN_CO_DINH".equals(voucher.getLoaiGiamGia())) {
+                soTienGiam = voucher.getGiaTriGiam();
+            } else {
+                // Xấp xỉ: % giảm áp trên tổng tiền đơn (tongTien đã là giá trị SAU giảm)
+                soTienGiam = d.getTongTien()
+                        .multiply(voucher.getGiaTriGiam())
+                        .divide(BigDecimal.valueOf(100).subtract(voucher.getGiaTriGiam()), 0, RoundingMode.HALF_UP);
+            }
+            Map<String, Object> row = new HashMap<>();
+            row.put("tenKhachHang", kh != null ? kh.getHoTen() : "—");
+            row.put("email", kh != null ? kh.getEmail() : "");
+            row.put("maDonHang", d.getId());
+            row.put("giaTriDonHang", d.getTongTien());
+            row.put("soTienGiam", soTienGiam);
+            row.put("thoiGianSuDung", d.getNgayTao());
+            return row;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("voucher", voucherInfo);
+        result.put("lichSu", lichSu);
+        return result;
     }
 
     private MaGiamGiaDto.Response mapToDto(MaGiamGia voucher) {

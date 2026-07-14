@@ -2,6 +2,7 @@ package com.poly.cake.service;
 
 
 import com.poly.cake.dto.PhieuNhapDto;
+import com.poly.cake.dto.PhieuNhapResponseDto;
 import com.poly.cake.entity.ChiTietPhieuNhap;
 import com.poly.cake.entity.PhieuNhapKho;
 import com.poly.cake.entity.SanPham;
@@ -13,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +25,45 @@ public class PhieuNhapService {
 
     private final PhieuNhapKhoRepository phieuNhapKhoRepository;
     private final SanPhamRepository sanPhamRepository;
+
+    // Danh sách toàn bộ phiếu nhập, mới nhất lên đầu - dùng cho trang PurchaseOrder (Admin)
+    @Transactional(readOnly = true)
+    public List<PhieuNhapResponseDto> layDanhSach() {
+        List<PhieuNhapKho> phieus = phieuNhapKhoRepository.findAllByOrderByNgayTaoDesc();
+
+        // Gom tất cả sanPhamId cần tra tên, tránh N+1
+        List<Long> sanPhamIds = phieus.stream()
+                .flatMap(p -> p.getChiTietList() == null ? java.util.stream.Stream.<ChiTietPhieuNhap>empty() : p.getChiTietList().stream())
+                .map(ChiTietPhieuNhap::getSanPhamId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> tenSanPhamMap = new HashMap<>();
+        if (!sanPhamIds.isEmpty()) {
+            for (SanPham sp : sanPhamRepository.findAllById(sanPhamIds)) {
+                tenSanPhamMap.put(sp.getId(), sp.getTenSanPham());
+            }
+        }
+
+        return phieus.stream().map(p -> mapToDto(p, tenSanPhamMap)).collect(Collectors.toList());
+    }
+
+    private PhieuNhapResponseDto mapToDto(PhieuNhapKho p, Map<Long, String> tenSanPhamMap) {
+        List<PhieuNhapResponseDto.ChiTiet> chiTiets = (p.getChiTietList() == null ? List.<ChiTietPhieuNhap>of() : p.getChiTietList())
+                .stream()
+                .map(ct -> new PhieuNhapResponseDto.ChiTiet(
+                        ct.getSanPhamId(),
+                        tenSanPhamMap.getOrDefault(ct.getSanPhamId(), "—"),
+                        ct.getSoLuong(),
+                        ct.getGiaNhap()
+                ))
+                .collect(Collectors.toList());
+
+        return new PhieuNhapResponseDto(
+                p.getId(), p.getNguoiTaoId(), p.getNguoiDuyetId(), p.getTrangThai(),
+                p.getTongTien(), p.getGhiChu(), p.getNgayTao(), p.getNgayDuyet(), chiTiets
+        );
+    }
 
     @Transactional
     public PhieuNhapKho taoPhieuNhap(PhieuNhapDto request, Long nguoiTaoId) {

@@ -95,4 +95,34 @@ public class DiscordWebhookService {
             log.error("[Discord] Gửi thông báo thất bại: {}", e.getMessage());
         }
     }
+
+    // ── Dùng cho trang Admin > Webhook ──────────────────────────────────────
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public boolean isConfigured() {
+        return webhookUrl != null && !webhookUrl.isBlank();
+    }
+
+    // Che bớt URL thật, chỉ hiện phần đầu/cuối để Admin xác nhận đã cấu hình đúng kênh
+    // mà không lộ toàn bộ webhook URL (ai có URL này đều gửi tin nhắn được vào kênh Discord).
+    public String getMaskedUrl() {
+        if (!isConfigured()) return null;
+        if (webhookUrl.length() <= 20) return "****";
+        return webhookUrl.substring(0, 40) + "..." + webhookUrl.substring(webhookUrl.length() - 6);
+    }
+
+    // Gửi tin nhắn test, trả về true/false để FE báo kết quả ngay (thay vì chỉ ghi log)
+    public boolean sendTestMessage() {
+        if (!enabled || !isConfigured()) return false;
+        try {
+            Map<String, Object> body = Map.of("content", "🔔 Đây là tin nhắn test từ trang Quản trị Chocopine.");
+            restTemplate.postForObject(webhookUrl, body, String.class);
+            return true;
+        } catch (Exception e) {
+            log.error("[Discord] Gửi test message thất bại: {}", e.getMessage());
+            return false;
+        }
+    }
 }

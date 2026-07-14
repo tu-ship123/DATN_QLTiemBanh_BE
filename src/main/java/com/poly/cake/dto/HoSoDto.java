@@ -25,6 +25,7 @@ public class HoSoDto {
         private String quyen;
         private String trangThai;
         private LocalDateTime ngayTao;
+        private Boolean is2FaEnabled;
     }
 
     /** Cập nhật thông tin cá nhân / avatar */
