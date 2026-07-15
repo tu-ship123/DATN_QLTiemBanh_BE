@@ -9,6 +9,7 @@ import com.poly.cake.entity.DanhGia;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.TrangThaiDonHang;
 import com.poly.cake.repository.DanhGiaRepository;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
@@ -46,7 +47,7 @@ public class DanhGiaService {
         }
 
         // Chỉ đơn HOAN_THANH mới được đánh giá
-        if (!"HOAN_THANH".equals(donHang.getTrangThai())) {
+        if (donHang.getTrangThai() != TrangThaiDonHang.HOAN_THANH) {
             throw new BusinessException("Chỉ có thể đánh giá đơn hàng đã hoàn thành");
         }
 
@@ -93,11 +94,27 @@ public class DanhGiaService {
         }
 
         List<DanhGia> danhSach = danhGiaRepository.findByDonHang(donHang);
-        boolean daDanhGia = danhGiaRepository.existsByKhachHangAndDonHang(khachHang, donHang);
+
+        // Danh sách id sản phẩm khách ĐÃ đánh giá trong đơn này
+        List<Long> sanPhamIdDaDanhGia = danhSach.stream()
+                .map(dg -> dg.getSanPham().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Danh sách id tất cả sản phẩm CÓ TRONG đơn hàng
+        List<Long> sanPhamIdTrongDon = donHang.getChiTietDonHangs().stream()
+                .map(ct -> ct.getSanPham().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Chỉ coi là "đã đánh giá xong" khi đã đánh giá HẾT tất cả sản phẩm trong đơn
+        boolean daDanhGia = !sanPhamIdTrongDon.isEmpty()
+                && sanPhamIdDaDanhGia.containsAll(sanPhamIdTrongDon);
 
         DanhGiaDto.DonHangDanhGiaResponse res = new DanhGiaDto.DonHangDanhGiaResponse();
         res.setDonHangId(donHangId);
         res.setDaDanhGia(daDanhGia);
+        res.setSanPhamIdDaDanhGia(sanPhamIdDaDanhGia);
         res.setDanhSach(danhSach.stream().map(this::toResponse).collect(Collectors.toList()));
         return res;
     }

@@ -48,6 +48,28 @@ public class PhieuNhapService {
         return phieus.stream().map(p -> mapToDto(p, tenSanPhamMap)).collect(Collectors.toList());
     }
 
+    // Map 1 phiếu nhập (entity) -> DTO an toàn để trả về FE.
+    // QUAN TRỌNG: không bao giờ trả thẳng entity PhieuNhapKho ra ngoài API, vì
+    // ChiTietPhieuNhap có tham chiếu ngược lại phieuNhapKho (quan hệ 2 chiều)
+    // -> Jackson serialize sẽ lặp vô hạn (phieu -> chiTietList -> phieuNhapKho -> chiTietList -> ...)
+    // khiến response JSON bị hỏng/không đầy đủ, và FE nhận về phieu.id = undefined
+    // (đây chính là nguyên nhân gây lỗi "undefined" khi duyệt phiếu nhập kho).
+    public PhieuNhapResponseDto toResponseDto(PhieuNhapKho phieu) {
+        List<Long> sanPhamIds = (phieu.getChiTietList() == null ? List.<ChiTietPhieuNhap>of() : phieu.getChiTietList())
+                .stream()
+                .map(ChiTietPhieuNhap::getSanPhamId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> tenSanPhamMap = new HashMap<>();
+        if (!sanPhamIds.isEmpty()) {
+            for (SanPham sp : sanPhamRepository.findAllById(sanPhamIds)) {
+                tenSanPhamMap.put(sp.getId(), sp.getTenSanPham());
+            }
+        }
+        return mapToDto(phieu, tenSanPhamMap);
+    }
+
     private PhieuNhapResponseDto mapToDto(PhieuNhapKho p, Map<Long, String> tenSanPhamMap) {
         List<PhieuNhapResponseDto.ChiTiet> chiTiets = (p.getChiTietList() == null ? List.<ChiTietPhieuNhap>of() : p.getChiTietList())
                 .stream()

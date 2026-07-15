@@ -44,7 +44,10 @@ public class DanhGiaDto {
     @Data
     public static class DonHangDanhGiaResponse {
         private Long donHangId;
+        /** true = đã đánh giá HẾT tất cả sản phẩm trong đơn (không còn sản phẩm nào để đánh giá thêm) */
         private boolean daDanhGia;
+        /** Danh sách id sản phẩm ĐÃ được đánh giá trong đơn này — FE dùng để lọc dropdown chọn sản phẩm */
+        private List<Long> sanPhamIdDaDanhGia;
         private List<Response> danhSach;
     }
 

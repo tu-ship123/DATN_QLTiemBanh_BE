@@ -310,3 +310,37 @@ BEGIN
     ALTER TABLE thiet_ke_yeu_thich ADD gia FLOAT NULL;
 END
 GO
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MIGRATION: thêm cột da_tru_ton_kho vào bảng don_hang
+--
+-- Lý do: sửa nghiệp vụ trừ tồn kho cho đơn hàng ONLINE (khách tự đặt qua web)
+-- — trước đây trừ kho ngay khi đơn được xác nhận/thanh toán (chuyển sang
+-- DA_XAC_NHAN), giờ CHỈ trừ kho khi đơn chuyển sang SAN_SANG (sẵn sàng giao).
+-- Cột này đánh dấu 1 đơn ONLINE đã thực sự bị trừ kho hay chưa, để logic
+-- hủy/hoàn tiền cộng trả kho chính xác.
+--
+-- LƯU Ý: cờ này CHỈ dùng cho luồng đơn ONLINE (OrderService). Đơn tạo tay bởi
+-- nhân viên/POS (AdminOrderService) KHÔNG dùng cờ này — bên đó trừ kho ngay
+-- lúc tạo đơn (1 bước, coi như hoàn thành luôn) và cộng trả kho vô điều kiện
+-- khi hủy/hoàn tiền, giữ nguyên như logic cũ, không thay đổi.
+--
+-- Chạy 1 LẦN DUY NHẤT trên môi trường PROD trước khi deploy code mới (vì
+-- application-prod.yml dùng ddl-auto: validate, không tự tạo cột).
+-- ═══════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE don_hang ADD da_tru_ton_kho BIT NOT NULL CONSTRAINT DF_don_hang_da_tru_ton_kho DEFAULT 0;
+
+-- Backfill dữ liệu cho các đơn ONLINE đã tồn tại trước khi có bản vá này:
+-- Dưới nghiệp vụ CŨ, tồn kho bị trừ ngay khi đơn chuyển sang DA_XAC_NHAN.
+-- Vậy nên bất kỳ đơn ONLINE nào hiện đang ở DA_XAC_NHAN trở lên trong luồng
+-- chuẩn đều ĐÃ bị trừ kho rồi -> đánh dấu = 1, để sau này nếu đơn đó bị
+-- hủy/hoàn tiền thì hệ thống vẫn cộng trả kho đúng.
+-- Đơn còn ở CHO_XAC_NHAN (chưa xác nhận) thì chưa từng bị trừ -> giữ = 0.
+-- Đơn đã hủy (DA_HUY) / đã hoàn tiền (DA_HOAN_TIEN) thì kho đã được cộng trả
+-- lại bởi chính logic hủy/hoàn tiền CŨ rồi -> giữ = 0 (không trừ trùng nữa).
+-- Đơn POS (nguon_don = 'POS') không thuộc phạm vi cờ này -> bỏ qua, giữ = 0.
+UPDATE don_hang
+SET da_tru_ton_kho = 1
+WHERE nguon_don = 'ONLINE'
+  AND trang_thai IN ('DA_XAC_NHAN', 'DANG_LAM', 'SAN_SANG', 'DANG_GIAO', 'DA_GIAO', 'HOAN_THANH');

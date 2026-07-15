@@ -304,6 +304,25 @@ public class OrderService {
                 throw new BusinessException("Bắt buộc phải nhập lý do khi hủy đơn hàng!");
             }
             donHang.setLyDoHuy(request.getLyDoHuy());
+
+            // Nếu đơn hủy sau khi đã trừ kho (đã từng đạt SAN_SANG trở lên) thì
+            // phải cộng trả lại tồn kho, tránh thất thoát hàng trong kho.
+            if (Boolean.TRUE.equals(donHang.getDaTruTonKho())) {
+                for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
+                    sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
+                }
+                donHang.setDaTruTonKho(false);
+            }
+        }
+
+        // NGHIỆP VỤ TRỪ TỒN KHO: chỉ trừ đúng 1 LẦN, tại thời điểm đơn hàng
+        // chuyển sang trạng thái SAN_SANG (sẵn sàng giao) — không trừ ngay lúc
+        // đặt hàng/xác nhận/thanh toán, vì trước SAN_SANG đơn vẫn có thể bị hủy
+        // hoặc thay đổi. Cờ daTruTonKho đảm bảo không bị trừ lặp lại nếu đơn
+        // được set lại trạng thái SAN_SANG nhiều lần.
+        if (trangThaiMoi == TrangThaiDonHang.SAN_SANG && !Boolean.TRUE.equals(donHang.getDaTruTonKho())) {
+            inventoryService.truTonKhoTheoDonHang(donHang);
+            donHang.setDaTruTonKho(true);
         }
 
         DonHang updatedDonHang = donHangRepository.save(donHang);
@@ -351,15 +370,24 @@ public class OrderService {
             thanhToan.setTrangThai("DA_HOAN_TIEN");
             thanhToanRepository.save(thanhToan);
 
-            for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
-                sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
-            }
             donHang.setTrangThai(TrangThaiDonHang.DA_HOAN_TIEN);
             donHang.setLyDoHuy("Khách hàng tự hủy trên web - đã hoàn tiền "
                     + soTienHoan + "đ vào " + LocalDateTime.now());
         } else {
             donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
             donHang.setLyDoHuy("Khách hàng tự hủy trên web");
+        }
+
+        // Cộng trả tồn kho CHỈ khi đơn ĐÃ thực sự bị trừ kho trước đó (tức đã từng
+        // đạt trạng thái SAN_SANG). Khách chỉ được tự hủy khi đơn còn ở CHO_XAC_NHAN
+        // hoặc DA_XAC_NHAN (xem TRANG_THAI_CON_DUOC_TU_HUY) — tức là TRƯỚC thời điểm
+        // trừ kho (SAN_SANG) — nên bình thường sẽ không cần cộng trả gì cả. Vẫn giữ
+        // guard này để phòng vệ nếu luồng hủy sau này được nới thêm trạng thái khác.
+        if (Boolean.TRUE.equals(donHang.getDaTruTonKho())) {
+            for (ChiTietDonHang ct : donHang.getChiTietDonHangs()) {
+                sanPhamRepository.congLaiSoLuongTon(ct.getSanPham().getId(), ct.getSoLuong());
+            }
+            donHang.setDaTruTonKho(false);
         }
 
         DonHang updatedDonHang = donHangRepository.save(donHang);
@@ -446,7 +474,10 @@ public class OrderService {
 
         donHang.setTrangThai(TrangThaiDonHang.DA_XAC_NHAN);
         donHangRepository.save(donHang);
-        inventoryService.truTonKhoTheoDonHang(donHang);
+        // LƯU Ý NGHIỆP VỤ: KHÔNG trừ tồn kho ở đây nữa. Trước đây trừ kho ngay khi
+        // thanh toán/xác nhận thành công, nhưng nghiệp vụ đúng là: chỉ trừ tồn kho
+        // khi đơn được cửa hàng chuyển sang trạng thái SAN_SANG (sẵn sàng giao) —
+        // xem processOrder() bên dưới, nơi trừ kho thực sự diễn ra.
         notificationService.notifyNewOrderToAdmins(
                 "✅ Đơn hàng DH" + orderId + " đã thanh toán qua SePay, chuyển sang DA_XAC_NHAN!");
     }

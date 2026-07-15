@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -67,6 +68,23 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", "Tham số không hợp lệ: " + e.getMessage()));
+    }
+
+    // Lỗi 400: Tham số trên URL (PathVariable/RequestParam) sai kiểu dữ liệu.
+    // Ví dụ điển hình gây crash ở phần nhập kho: FE gọi PUT /phieu-nhap/{id}/approve
+    // nhưng biến id ở FE đang là undefined -> BE nhận chuỗi "undefined" thay vì số ->
+    // parse Long thất bại. Trước đây lỗi này rơi vào handler Exception chung ở dưới,
+    // trả về 500 "lỗi hệ thống" khiến FE/người dùng khó hiểu vì tưởng lỗi server.
+    // Thực chất đây là lỗi do tham số đầu vào không hợp lệ (400), không phải lỗi hệ thống.
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        String gioiThieuTen = e.getName();
+        String giaTriNhan = String.valueOf(e.getValue());
+        log.warn("Tham số '{}' không hợp lệ, giá trị nhận được: '{}'", gioiThieuTen, giaTriNhan);
+        String message = "undefined".equals(giaTriNhan) || giaTriNhan == null
+                ? "Thiếu thông tin '" + gioiThieuTen + "', vui lòng tải lại trang và thử lại!"
+                : "Tham số '" + gioiThieuTen + "' không hợp lệ: '" + giaTriNhan + "'";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", message));
     }
 
     // Trạm cuối: bắt mọi lỗi chưa lường trước (NPE, lỗi DB, lỗi parse...) -> LUÔN trả 500

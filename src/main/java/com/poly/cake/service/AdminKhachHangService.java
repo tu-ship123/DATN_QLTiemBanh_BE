@@ -7,6 +7,7 @@ import com.poly.cake.exception.ForbiddenException;
 import com.poly.cake.dto.KhachHangDto;
 import com.poly.cake.entity.DiemThuong;
 import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.entity.TrangThaiDonHang;
 import com.poly.cake.repository.DiemThuongRepository;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
@@ -130,7 +131,7 @@ public class AdminKhachHangService {
         // Tổng chi tiêu (không tính đơn hủy)
         BigDecimal tongChiTieu = donHangRepository.findByKhachHangOrderByNgayTaoDesc(kh)
                 .stream()
-                .filter(d -> !"DA_HUY".equals(d.getTrangThai()))
+                .filter(d -> d.getTrangThai() != TrangThaiDonHang.DA_HUY)
                 .map(d -> d.getTongTien() != null ? d.getTongTien() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

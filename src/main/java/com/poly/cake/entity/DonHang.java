@@ -90,6 +90,17 @@ public class DonHang {
     @Column(nullable = false, columnDefinition = "NVARCHAR(255)")
     private String nguonDon = "ONLINE"; // ONLINE, POS
 
+    // Cờ đánh dấu đơn ĐÃ được trừ tồn kho sản phẩm hay chưa.
+    // Nghiệp vụ: đơn online CHỈ trừ kho khi chuyển sang trạng thái SAN_SANG
+    // (sẵn sàng giao) — không trừ ngay lúc đặt/xác nhận/thanh toán, vì thời điểm
+    // đó cửa hàng còn có thể hủy/đổi số lượng trước khi thực sự chuẩn bị hàng.
+    // Cờ này dùng để: (1) tránh trừ kho 2 lần nếu đơn được chuyển sang SAN_SANG
+    // qua nhiều đường (process/status), (2) khi hủy/hoàn tiền biết chính xác có
+    // cần cộng trả tồn kho hay không (chỉ cộng trả nếu trước đó ĐÃ thực sự trừ).
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean daTruTonKho = false;
+
     // Mapping 1-Nhiều với bảng chi tiết đơn hàng
     @Builder.Default
     @OneToMany(mappedBy = "donHang", cascade = CascadeType.ALL, orphanRemoval = true)
