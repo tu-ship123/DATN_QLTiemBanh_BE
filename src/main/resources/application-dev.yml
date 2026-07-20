@@ -4,7 +4,7 @@ server:
 spring:
   # Cấu hình Database SQL Server Local
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=QL_TiemBanh1;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true
+    url: jdbc:sqlserver://localhost:1433;databaseName=QL_TiemBanh;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true
     username: sa # Thay bằng username SQL Server của bạn
     password: 123456 # Thay bằng password thực tế của bạn
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -27,5 +27,12 @@ spring:
     password: "ixsakgqijctydtlo" # ĐIỀN MẬT KHẨU ỨNG DỤNG GMAIL 16 KÝ TỰ VÀO ĐÂY
 
 # [ĐÃ SỬA]: Đưa sepay ra ngoài cùng cấp gốc (bằng cấp với server và spring)
+# [ĐÃ SỬA]: Đưa sepay ra ngoài cùng cấp gốc (bằng cấp với server và spring)
 sepay:
   webhook-token: "PolyCakeSecured2026"
+
+# Trợ lý ảo AI — proxy sang chatbot service (Flask) chạy nội bộ ở port 5000.
+# internal-token PHẢI trùng với CHATBOT_INTERNAL_TOKEN trong file .env của chatbot-service.
+chatbot:
+  base-url: "http://127.0.0.1:5000"
+  internal-token: "12345"
