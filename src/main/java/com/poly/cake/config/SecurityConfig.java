@@ -46,6 +46,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/health", "/api/v1/health/**").permitAll() // T103: Health Check public
                 .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/accessories/**", "/ws-bakery/**").permitAll()
 
+                // Trợ lý ảo AI: cho phép cả khách vãng lai (chưa đăng nhập) sử dụng
+                .requestMatchers("/api/v1/chatbot/**").permitAll()
+
                         // T070 – Validate mã giảm giá/voucher trước khi đặt hàng (chỉ khách đã đăng nhập)
                         .requestMatchers("/api/v1/vouchers/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
 
