@@ -38,6 +38,9 @@ public class InventoryService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private EmailService emailService;
+
     private static final List<String> NGUOI_NHAN_CANH_BAO = List.of("ADMIN", "NHAN_VIEN");
 
     /**
@@ -159,6 +162,16 @@ public class InventoryService {
             tb.setDaDoc(false);
             thongBaoRepository.save(tb);
             coGuiMoi = true;
+
+            // Gửi email cảnh báo cho từng người nhận (best-effort, không rollback nếu lỗi)
+            if (nd.getEmail() != null && !nd.getEmail().isBlank()) {
+                try {
+                    emailService.sendLowStockWarningEmail(
+                            nd.getEmail(), sp.getTenSanPham(), sp.getSoLuongTon(), nguongHienThi);
+                } catch (Exception e) {
+                    log.error("Gửi email cảnh báo tồn kho thấp cho {} thất bại: {}", nd.getEmail(), e.getMessage());
+                }
+            }
         }
 
         // Chỉ push real-time 1 lần khi thực sự có thông báo mới (tránh spam broadcast trùng lặp)
