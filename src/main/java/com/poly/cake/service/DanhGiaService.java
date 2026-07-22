@@ -14,6 +14,7 @@ import com.poly.cake.repository.DanhGiaRepository;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import com.poly.cake.util.ProfanityFilterUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,12 +67,14 @@ public class DanhGiaService {
             throw new BusinessException("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
         }
 
+String cleanedNoiDung = ProfanityFilterUtils.filterText(request.getNoiDung());
+
         DanhGia danhGia = DanhGia.builder()
                 .khachHang(khachHang)
                 .donHang(donHang)
                 .sanPham(sanPham)
                 .soSao(request.getSoSao())
-                .noiDung(request.getNoiDung())
+                .noiDung(cleanedNoiDung)                
                 .biAn(false)
                 .build();
 
