@@ -2,9 +2,11 @@ package com.poly.cake.service;
 
 import com.poly.cake.dto.*;
 import com.poly.cake.repository.DonHangRepository;
+import com.poly.cake.repository.PhieuKiemKeRepository;
 import com.poly.cake.repository.ThanhToanRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,7 @@ public class ReportService {
     private final DonHangRepository donHangRepository;
     private final ThanhToanRepository thanhToanRepository;
     private final ChamCongRepository chamCongRepository; // Thêm dòng này
+    
 
     // Cập nhật Constructor để nhận đủ 3 Repository
     public ReportService(DonHangRepository donHangRepository,
@@ -175,5 +178,25 @@ public class ReportService {
     public List<VoucherUsageDto> getVoucherUsage(String maCode) {
         return donHangRepository.getVoucherUsage(maCode);
     }
+
+// LichSuBaoCaoKiemKe
+    // ==========================================
+
+    @Autowired
+private PhieuKiemKeRepository phieuKiemKeRepository;
+
+public List<BaoCaoKiemKeDto> getBaoCaoKiemKe() {
+    return phieuKiemKeRepository.findAllByOrderByNgayKiemKeDesc().stream().map(p -> new BaoCaoKiemKeDto(
+            p.getId(),
+            p.getSanPham().getId(),
+            p.getSanPham().getTenSanPham(),
+            p.getTonHeThong(),
+            p.getTonThucTe(),
+            p.getChenhLech(),
+            p.getLyDo(),
+            p.getNguoiThucHien(),
+            p.getNgayKiemKe()
+    )).toList();
+}
 
 }
