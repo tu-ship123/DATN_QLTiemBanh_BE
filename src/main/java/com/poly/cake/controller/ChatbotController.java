@@ -1,5 +1,9 @@
 package com.poly.cake.controller;
 
+import com.poly.cake.entity.LichSuChatBot;
+import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.repository.LichSuChatBotRepository;
+import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.service.ChatbotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +24,8 @@ import java.util.Map;
 public class ChatbotController {
 
     private final ChatbotService chatbotService;
+    private final LichSuChatBotRepository lichSuChatBotRepository;
+    private final NguoiDungRepository nguoiDungRepository;
 
     @PostMapping(value = "/ask", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, String>> ask(
@@ -32,6 +38,24 @@ public class ChatbotController {
         String sessionId = authentication != null ? authentication.getName() : "guest";
 
         Map<String, String> result = chatbotService.ask(prompt, sessionId, file);
+
+        // Lưu lại lượt hỏi-đáp vào DB (không chặn phản hồi cho khách nếu lưu lỗi)
+        try {
+            NguoiDung khachHang = authentication != null
+                    ? nguoiDungRepository.findByEmail(authentication.getName()).orElse(null)
+                    : null;
+
+            LichSuChatBot record = LichSuChatBot.builder()
+                    .khachHang(khachHang)
+                    .sessionId(sessionId)
+                    .cauHoi(prompt)
+                    .traLoi(result.getOrDefault("response", ""))
+                    .build();
+            lichSuChatBotRepository.save(record);
+        } catch (Exception ignored) {
+            // Lưu lịch sử là phụ — lỗi ở đây không nên làm hỏng trải nghiệm chat của khách
+        }
+
         return ResponseEntity.ok(result);
     }
 }
