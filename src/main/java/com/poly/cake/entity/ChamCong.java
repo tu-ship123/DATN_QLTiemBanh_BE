@@ -89,8 +89,8 @@ public class ChamCong {
      * columnDefinition có DEFAULT 1.0 để SQL Server chấp nhận ALTER TABLE
      * thêm cột NOT NULL vào bảng cham_cong đã có sẵn dữ liệu (nếu không có
      * DEFAULT, SQL Server sẽ từ chối ALTER TABLE khi bảng không rỗng).
-     */
+     */    
     @Builder.Default
-    @Column(nullable = false, columnDefinition = "numeric(4,2) DEFAULT 1.0")
+    @Column(name = "he_so_luong", nullable = false, precision = 4, scale = 2)
     private BigDecimal heSoLuong = BigDecimal.ONE;
 }

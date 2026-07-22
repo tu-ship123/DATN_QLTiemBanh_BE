@@ -3,12 +3,14 @@ package com.poly.cake.service;
 import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
+import com.poly.cake.entity.PhieuKiemKe;
 import com.poly.cake.entity.SanPham;
 import com.poly.cake.entity.ThongBao;
 import com.poly.cake.exception.BusinessException;
 import com.poly.cake.exception.ResourceNotFoundException;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
+import com.poly.cake.repository.PhieuKiemKeRepository;
 import com.poly.cake.repository.SanPhamRepository;
 import com.poly.cake.repository.ThongBaoRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +41,11 @@ public class InventoryService {
     private NotificationService notificationService;
 
     @Autowired
+
     private EmailService emailService;
+
+private PhieuKiemKeRepository phieuKiemKeRepository; // Bổ sung Repository
+ dev
 
     private static final List<String> NGUOI_NHAN_CANH_BAO = List.of("ADMIN", "NHAN_VIEN");
 
@@ -50,33 +56,47 @@ public class InventoryService {
      * Sau khi cập nhật, tự động kiểm tra ngưỡng để phát cảnh báo.
      */
     @Transactional
-    public SanPham dieuChinhTonKhoThuCong(Long id, Integer soLuongThayDoi) {
-        if (soLuongThayDoi == null || soLuongThayDoi == 0) {
-            throw new BusinessException("Số lượng thay đổi phải khác 0");
-        }
-
-        SanPham sanPham = sanPhamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
-
-        if (soLuongThayDoi > 0) {
-            sanPhamRepository.congLaiSoLuongTon(id, soLuongThayDoi);
-        } else {
-            // soLuongThayDoi mang dấu âm, truyền số dương vào hàm trừ
-            int soDongBiAnhHuong = sanPhamRepository.truSoLuongTon(id, -soLuongThayDoi);
-            if (soDongBiAnhHuong == 0) {
-                throw new BusinessException("Số lượng tồn kho hiện tại không đủ để trừ " + (-soLuongThayDoi));
-            }
-        }
-
-        // Lấy lại dữ liệu mới nhất sau khi UPDATE dưới database để kiểm tra cảnh báo
-        SanPham sanPhamMoiNhat = sanPhamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm sau khi cập nhật"));
-
-        // Kiểm tra xem mức tồn kho mới có chạm ngưỡng cảnh báo không
-        kiemTraVaCanhBaoNeuTonKhoThap(sanPhamMoiNhat);
-
-        return sanPhamMoiNhat;
+public SanPham dieuChinhTonKhoThuCong(Long id, Integer soLuongThayDoi, String lyDo, String nguoiThucHien) {
+    if (soLuongThayDoi == null || soLuongThayDoi == 0) {
+        throw new BusinessException("Số lượng thay đổi phải khác 0");
     }
+
+    SanPham sanPham = sanPhamRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
+
+    int tonHeThongBanDau = sanPham.getSoLuongTon() != null ? sanPham.getSoLuongTon() : 0;
+
+    if (soLuongThayDoi > 0) {
+        sanPhamRepository.congLaiSoLuongTon(id, soLuongThayDoi);
+    } else {
+        int soDongBiAnhHuong = sanPhamRepository.truSoLuongTon(id, -soLuongThayDoi);
+        if (soDongBiAnhHuong == 0) {
+            throw new BusinessException("Số lượng tồn kho hiện tại không đủ để trừ " + (-soLuongThayDoi));
+        }
+    }
+
+    // Lấy dữ liệu sản phẩm mới nhất sau khi update
+    SanPham sanPhamMoiNhat = sanPhamRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm sau khi cập nhật"));
+
+    int tonThucTeMoi = sanPhamMoiNhat.getSoLuongTon();
+
+    // 🔴 GHI LẠI BẢN GHI LỊCH SỬ CHÊNH LỆCH KIỂM KÊ
+    PhieuKiemKe pkk = PhieuKiemKe.builder()
+            .sanPham(sanPhamMoiNhat)
+            .tonHeThong(tonHeThongBanDau)
+            .tonThucTe(tonThucTeMoi)
+            .chenhLech(soLuongThayDoi) // dương: thừa/nhập, âm: thiếu/xuất
+            .lyDo(lyDo != null ? lyDo : "Điều chỉnh kiểm kê tồn kho")
+            .nguoiThucHien(nguoiThucHien)
+            .build();
+    phieuKiemKeRepository.save(pkk);
+
+    // Kiểm tra xem mức tồn kho mới có chạm ngưỡng cảnh báo không
+    kiemTraVaCanhBaoNeuTonKhoThap(sanPhamMoiNhat);
+
+    return sanPhamMoiNhat;
+}
 
     /**
      * Trừ tồn kho cho toàn bộ sản phẩm trong 1 đơn hàng (gọi khi thanh toán THÀNH CÔNG).

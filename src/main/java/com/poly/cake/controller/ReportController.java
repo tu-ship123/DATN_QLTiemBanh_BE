@@ -84,4 +84,10 @@ public class ReportController {
     public ResponseEntity<?> getVoucherUsage(@RequestParam(required = false) String maCode) {
         return ResponseEntity.ok(reportService.getVoucherUsage(maCode));
     }
+
+    // API Xem Báo cáo kiểm kê & Chênh lệch tồn kho
+    @GetMapping("/kiem-ke")
+    public ResponseEntity<?> getBaoCaoKiemKe() {
+        return ResponseEntity.ok(reportService.getBaoCaoKiemKe());
+    }
 }
