@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
 
 import com.poly.cake.dto.SanPhamDto;
 import com.poly.cake.service.AdminSanPhamService;
@@ -25,7 +26,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RestController
 @RequestMapping("/api/v1/admin/products")
 // T103 – RBAC nâng cao: class-level chỉ cho ADMIN và NHAN_VIEN vào,
-// các method write (POST/PUT/DELETE/PATCH) yêu cầu thêm @PreAuthorize("hasRole('ADMIN')")
+// các method write (POST/PUT/DELETE/PATCH) yêu cầu thêm
+// @PreAuthorize("hasRole('ADMIN')")
 @PreAuthorize("hasAnyRole('ADMIN', 'NHAN_VIEN')")
 public class AdminSanPhamController {
 
@@ -43,8 +45,7 @@ public class AdminSanPhamController {
             @RequestParam(required = false) Long danhMucId) {
 
         return ResponseEntity.ok(
-                adminSanPhamService.getFilteredProducts(keyword, trangThai, danhMucId)
-        );
+                adminSanPhamService.getFilteredProducts(keyword, trangThai, danhMucId));
     }
 
     // GET: Cả ADMIN và NHAN_VIEN đều xem được
@@ -66,18 +67,33 @@ public class AdminSanPhamController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> dieuChinhTonKho(
             @PathVariable Long id,
-            @RequestBody Map<String, Integer> body) {
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
 
-        int soLuongThayDoi = body.getOrDefault("soLuongThayDoi", 0);
-        SanPham sanPham = inventoryService.dieuChinhTonKhoThuCong(id, soLuongThayDoi);
+        // 1. Lấy số lượng thay đổi từ request body
+        int soLuongThayDoi = 0;
+        if (body != null && body.get("soLuongThayDoi") != null) {
+            soLuongThayDoi = Integer.parseInt(body.get("soLuongThayDoi").toString());
+        }
 
+        // 2. Lấy lý do điều chỉnh (nếu FE gửi lên)
+        String lyDo = (body != null && body.get("lyDo") != null)
+                ? body.get("lyDo").toString()
+                : "Điều chỉnh kho thủ công";
+
+        // 3. Lấy tên/email của Admin đang đăng nhập
+        String nguoiThucHien = (auth != null) ? auth.getName() : "ADMIN";
+
+        // 4. Gọi Service với đủ 4 tham số để lưu lịch sử kiểm kê
+        SanPham sanPham = inventoryService.dieuChinhTonKhoThuCong(id, soLuongThayDoi, lyDo, nguoiThucHien);
+
+        // 5. Trả về Response Map theo đúng chuẩn cũ của bạn
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "id", sanPham.getId(),
                 "tenSanPham", sanPham.getTenSanPham(),
                 "soLuongTon", sanPham.getSoLuongTon(),
-                "nguongCanhBao", sanPham.getNguongCanhBao()
-        ));
+                "nguongCanhBao", sanPham.getNguongCanhBao()));
     }
 
     // POST: Thêm sản phẩm mới — chỉ ADMIN
