@@ -9,7 +9,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Admin quản lý đánh giá sản phẩm.
@@ -50,9 +49,9 @@ public class AdminDanhGiaController {
     @PutMapping("/{id}/reply")
     public ResponseEntity<?> reply(
             @PathVariable Long id,
-            @Valid @RequestBody Map<String, String> body) {
+            @Valid @RequestBody DanhGiaDto.ReplyRequest body) {
         return ResponseEntity.ok(
-                adminDanhGiaService.reply(id, body.get("phanHoi"))
+                adminDanhGiaService.reply(id, body.getPhanHoi())
         );
     }
 
