@@ -344,3 +344,43 @@ UPDATE don_hang
 SET da_tru_ton_kho = 1
 WHERE nguon_don = 'ONLINE'
   AND trang_thai IN ('DA_XAC_NHAN', 'DANG_LAM', 'SAN_SANG', 'DANG_GIAO', 'DA_GIAO', 'HOAN_THANH');
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MIGRATION (DF_ST06): thêm cột lưu "Yêu cầu sửa đơn" vào bảng don_hang
+--
+-- Lý do: BE trước đây hoàn toàn chưa có cơ chế lưu/đồng bộ yêu cầu sửa đơn
+-- của khách hàng tới nhân viên (khách gửi yêu cầu nhưng nhân viên không hề
+-- nhận được thông báo nào). Bổ sung 3 cột để lưu lại nội dung khách muốn
+-- sửa (JSON snapshot), thời điểm gửi và trạng thái xử lý, phục vụ
+-- OrderService#guiYeuCauSuaDon() + màn quản trị đơn hàng cho nhân viên.
+--
+-- Chạy 1 LẦN DUY NHẤT trên môi trường PROD trước khi deploy code mới (vì
+-- application-prod.yml dùng ddl-auto: validate, không tự tạo cột).
+-- ═══════════════════════════════════════════════════════════════════════════
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('don_hang') AND name = 'yeu_cau_sua_don_json'
+)
+BEGIN
+    ALTER TABLE don_hang ADD yeu_cau_sua_don_json NVARCHAR(MAX) NULL;
+END
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('don_hang') AND name = 'ngay_yeu_cau_sua_don'
+)
+BEGIN
+    ALTER TABLE don_hang ADD ngay_yeu_cau_sua_don DATETIME2 NULL;
+END
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('don_hang') AND name = 'trang_thai_yeu_cau_sua_don'
+)
+BEGIN
+    ALTER TABLE don_hang ADD trang_thai_yeu_cau_sua_don NVARCHAR(50) NULL;
+END
+GO

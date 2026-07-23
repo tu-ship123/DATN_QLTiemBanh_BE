@@ -124,4 +124,31 @@ public class OrderController {
                 .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
+
+    // 9. API "ĐẶT LẠI ĐƠN CŨ" (RE-ORDER) - Chỉ dành cho Khách hàng (DF_ST05)
+    // Copy toàn bộ sản phẩm của đơn cũ vào giỏ hàng hiện tại của khách.
+    @PostMapping("/{id}/reorder")
+    @PreAuthorize("hasRole('KHACH_HANG')")
+    @Operation(summary = "Đặt lại đơn hàng cũ",
+            description = "Thêm toàn bộ sản phẩm của 1 đơn hàng cũ vào giỏ hàng hiện tại của khách")
+    public ResponseEntity<?> reorder(@PathVariable Long id, Authentication authentication) {
+        String email = authentication.getName();
+        OrderDto.ReorderResponse response = orderService.datLaiDonHang(id, email);
+        return ResponseEntity.ok(response);
+    }
+
+    // 10. API GỬI "YÊU CẦU SỬA ĐƠN" - Chỉ dành cho Khách hàng (DF_ST06)
+    // Chỉ áp dụng khi đơn đang ở trạng thái Chờ xác nhận, đồng bộ ngay tới nhân viên qua WebSocket.
+    @PostMapping("/{id}/edit-request")
+    @PreAuthorize("hasRole('KHACH_HANG')")
+    @Operation(summary = "Gửi yêu cầu sửa đơn hàng",
+            description = "Khách hàng đề nghị thay đổi thông tin đơn (địa chỉ/SĐT/ngày giao/ghi chú), " +
+                    "hệ thống lưu lại và thông báo realtime cho nhân viên/admin")
+    public ResponseEntity<?> guiYeuCauSuaDon(@PathVariable Long id,
+                                              @Valid @RequestBody OrderDto.UpdateRequest request,
+                                              Authentication authentication) {
+        String email = authentication.getName();
+        OrderDto.Response response = orderService.guiYeuCauSuaDon(id, request, email);
+        return ResponseEntity.ok(response);
+    }
 }
