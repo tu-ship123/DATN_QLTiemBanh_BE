@@ -24,6 +24,15 @@ public class DanhGiaDto {
         private String noiDung;
     }
 
+    /** Admin gửi lên khi phản hồi 1 đánh giá */
+    @Data
+    public static class ReplyRequest {
+
+        @NotBlank(message = "Nội dung phản hồi không được để trống")
+        @Size(max = 1000, message = "Nội dung phản hồi tối đa 1000 ký tự")
+        private String phanHoi;
+    }
+
     /** Response trả về 1 đánh giá */
     @Data
     public static class Response {
