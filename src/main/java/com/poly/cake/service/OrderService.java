@@ -2,6 +2,7 @@ package com.poly.cake.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.poly.cake.dto.GioHangDto;
 import com.poly.cake.dto.OrderDto;
 import com.poly.cake.dto.OrderProcessDto;
 import com.poly.cake.entity.DonHang;
@@ -59,6 +60,10 @@ public class OrderService {
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
     private final DiscordWebhookService discordWebhookService;
+
+    // DF_ST05 – Dùng lại logic thêm-vào-giỏ có sẵn (đã xử lý validate tồn kho,
+    // bánh 3D tùy chỉnh, gộp số lượng...) để implement tính năng "Đặt lại đơn cũ".
+    private final GioHangService gioHangService;
 
     // T102 – Tính % phụ thu tự động theo ngày giao hàng (dịp đặc biệt)
     private final PhuThuDonHangService phuThuDonHangService;
@@ -419,6 +424,113 @@ public class OrderService {
         return mapToResponseDto(updatedDonHang, false);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DF_ST05 – "ĐẶT LẠI ĐƠN CŨ" (RE-ORDER)
+    //
+    // Bug cũ: tính năng này CHƯA hề tồn tại ở BE (không có endpoint/service nào),
+    // nên khi FE build nút "Đặt lại đơn cũ" cho đơn có NHIỀU sản phẩm, không có
+    // API nào trả về đủ toàn bộ sản phẩm để thêm lại vào giỏ -> bị thiếu sản phẩm.
+    //
+    // Fix: lặp qua TOÀN BỘ ChiTietDonHang của đơn cũ (không dừng lại ở sản phẩm
+    // đầu tiên) và thêm từng sản phẩm vào giỏ hàng hiện tại của khách. Sản phẩm
+    // nào không còn thêm được nữa (đã ngừng bán / hết hàng / bị xóa) sẽ được BỎ
+    // QUA và liệt kê riêng, KHÔNG được để 1 sản phẩm lỗi làm hỏng toàn bộ thao tác.
+    // ═══════════════════════════════════════════════════════════════════════════
+    @Transactional
+    public OrderDto.ReorderResponse datLaiDonHang(Long donHangId, String emailNguoiDung) {
+        NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
+                .orElseThrow(() -> new BusinessException("Tài khoản không hợp lệ."));
+
+        DonHang donHangCu = donHangRepository.findByIdAndKhachHang(donHangId, khachHang)
+                .orElseThrow(() -> new ForbiddenException(
+                        "Đơn hàng không thuộc quyền sở hữu của bạn hoặc không tồn tại."));
+
+        if (donHangCu.getChiTietDonHangs() == null || donHangCu.getChiTietDonHangs().isEmpty()) {
+            throw new BusinessException("Đơn hàng này không có sản phẩm nào để đặt lại!");
+        }
+
+        List<String> sanPhamBiBoQua = new java.util.ArrayList<>();
+        int soSanPhamDaThem = 0;
+
+        for (ChiTietDonHang ct : donHangCu.getChiTietDonHangs()) {
+            GioHangDto.ThemVaoGioRequest req = new GioHangDto.ThemVaoGioRequest();
+            req.setSanPhamId(ct.getSanPham().getId());
+            req.setSoLuong(ct.getSoLuong());
+            req.setThietKeBanhJson(ct.getThietKeBanhJson());
+            try {
+                gioHangService.themVaoGio(emailNguoiDung, req);
+                soSanPhamDaThem++;
+            } catch (BusinessException | ResourceNotFoundException e) {
+                // Sản phẩm có thể đã ngừng bán/hết hàng/bị xóa kể từ lúc đặt đơn cũ.
+                // Đây chính là nguyên nhân cần XỬ LÝ RIÊNG thay vì để lỗi văng ra
+                // và làm mất luôn các sản phẩm khác chưa kịp thêm (bug gốc DF_ST05).
+                sanPhamBiBoQua.add(ct.getSanPham().getTenSanPham() + " (" + e.getMessage() + ")");
+            }
+        }
+
+        if (soSanPhamDaThem == 0) {
+            throw new BusinessException(
+                    "Không thể đặt lại đơn hàng này vì toàn bộ sản phẩm đều không còn khả dụng.");
+        }
+
+        GioHangDto.GioHangResponse gioHangMoi = gioHangService.layGioHang(emailNguoiDung);
+
+        OrderDto.ReorderResponse response = new OrderDto.ReorderResponse();
+        response.setGioHang(gioHangMoi);
+        response.setSoSanPhamDaThem(soSanPhamDaThem);
+        response.setSanPhamBiBoQua(sanPhamBiBoQua);
+        return response;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DF_ST06 – "YÊU CẦU SỬA ĐƠN"
+    //
+    // Bug cũ: tính năng này CHƯA hề tồn tại ở BE (DTO OrderDto.UpdateRequest đã
+    // được khai báo sẵn nhưng KHÔNG được dùng ở bất kỳ service/controller nào)
+    // -> yêu cầu sửa đơn của khách không được lưu lại và cũng không hề được báo
+    // cho nhân viên biết, dù dưới bất kỳ hình thức nào.
+    //
+    // Fix: lưu lại nội dung khách muốn sửa (snapshot JSON) trực tiếp trên đơn
+    // hàng, CHỈ cho phép gửi khi đơn đang ở trạng thái Chờ xác nhận, và quan
+    // trọng nhất là BẮN THÔNG BÁO REALTIME cho toàn bộ nhân viên/admin ngay khi
+    // khách gửi yêu cầu — đây chính là phần "đồng bộ tới nhân viên" bị thiếu.
+    // ═══════════════════════════════════════════════════════════════════════════
+    @Transactional
+    public OrderDto.Response guiYeuCauSuaDon(Long donHangId, OrderDto.UpdateRequest request, String emailNguoiDung) {
+        NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
+                .orElseThrow(() -> new BusinessException("Tài khoản không hợp lệ."));
+
+        DonHang donHang = donHangRepository.findByIdAndKhachHang(donHangId, khachHang)
+                .orElseThrow(() -> new ForbiddenException(
+                        "Đơn hàng không thuộc quyền sở hữu của bạn hoặc không tồn tại."));
+
+        if (donHang.getTrangThai() != TrangThaiDonHang.CHO_XAC_NHAN) {
+            throw new BusinessException(
+                    "Chỉ có thể gửi yêu cầu sửa đơn khi đơn đang ở trạng thái \"Chờ xác nhận\". " +
+                            "Đơn hàng của bạn hiện đang ở trạng thái \"" + donHang.getTrangThai().name() +
+                            "\", vui lòng liên hệ trực tiếp cửa hàng để được hỗ trợ.");
+        }
+
+        try {
+            donHang.setYeuCauSuaDonJson(objectMapper.writeValueAsString(request));
+        } catch (Exception e) {
+            throw new BusinessException("Không thể xử lý yêu cầu sửa đơn, vui lòng thử lại!");
+        }
+        donHang.setNgayYeuCauSuaDon(LocalDateTime.now());
+        donHang.setTrangThaiYeuCauSuaDon("CHO_XU_LY");
+
+        DonHang updatedDonHang = donHangRepository.save(donHang);
+
+        // FIX CHÍNH của DF_ST06: đẩy thông báo realtime cho kênh nhân viên/admin,
+        // đồng bộ với các luồng notify khác đã có (đơn mới, hủy đơn...) để nhân
+        // viên biết ngay và không còn bị bỏ sót yêu cầu sửa đơn của khách.
+        notificationService.notifyNewOrderToAdmins(
+                "✏️ Khách hàng vừa gửi yêu cầu sửa thông tin đơn HD-" + donHangId +
+                        ". Vui lòng vào chi tiết đơn để xem và duyệt yêu cầu.");
+
+        return mapToResponseDto(updatedDonHang, false);
+    }
+
     public Map<String, Object> get3DCakeDesign(Long orderId) {
         DonHang donHang = donHangRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng có ID: " + orderId));
@@ -519,6 +631,7 @@ public class OrderService {
         dto.setLyDoHuy(donHang.getLyDoHuy());
         dto.setCoThietKe3D(donHang.getThietKeBanhJson() != null &&
                 !donHang.getThietKeBanhJson().trim().isEmpty());
+        dto.setTrangThaiYeuCauSuaDon(donHang.getTrangThaiYeuCauSuaDon());
 
         if (donHang.getChiTietDonHangs() != null) {
             List<OrderDto.OrderItemResponse> itemDtos = donHang.getChiTietDonHangs().stream()

@@ -89,6 +89,14 @@ public class HoSoService {
             throw new BusinessException("Mật khẩu hiện tại không chính xác!");
         }
 
+        // DF_ST01 (Fix): trước đây BE không hề kiểm tra mật khẩu mới có trùng
+        // mật khẩu hiện tại hay không -> nếu client gọi thẳng API (Postman/app khác)
+        // bỏ qua validate của FE thì vẫn đổi "thành công" sang cùng 1 mật khẩu cũ.
+        // Chặn ngay tại BE để đảm bảo quy tắc này luôn đúng bất kể FE có validate hay không.
+        if (passwordEncoder.matches(request.getMatKhauMoi(), user.getMatKhau())) {
+            throw new BusinessException("Mật khẩu mới phải khác mật khẩu hiện tại!");
+        }
+
         // T097: Tài khoản nội bộ (ADMIN, NHAN_VIEN) đổi mật khẩu qua Staff
         // Portal bắt buộc mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt,
         // siết chặt hơn khách hàng để giảm rủi ro dò/đoán mật khẩu nội bộ.

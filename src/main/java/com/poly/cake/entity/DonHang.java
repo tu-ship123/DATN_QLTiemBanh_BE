@@ -82,6 +82,18 @@ public class DonHang {
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String lyDoHuy;
 
+    // DF_ST06 – "Yêu cầu sửa đơn": khách hàng đề nghị thay đổi thông tin đơn
+    // (địa chỉ/SĐT/ngày giao/ghi chú) khi đơn còn ở trạng thái Chờ xác nhận.
+    // Lưu lại snapshot JSON của nội dung khách muốn sửa để nhân viên xem & duyệt.
+    @Column(columnDefinition = "NVARCHAR(MAX)")
+    private String yeuCauSuaDonJson;
+
+    private LocalDateTime ngayYeuCauSuaDon;
+
+    // CHO_XU_LY (khách vừa gửi, chưa ai xử lý) / DA_XU_LY (nhân viên đã xử lý xong) / null (chưa có yêu cầu nào)
+    @Column(columnDefinition = "NVARCHAR(50)")
+    private String trangThaiYeuCauSuaDon;
+
     // T080 – Thời điểm giao hàng THỰC TẾ, được ghi nhận tự động khi nhân viên
     // giao hàng quét mã vạch/mã đơn trên bill lúc giao (xem AdminOrderService#scanDelivery)
     private LocalDateTime thoiDiemGiao;

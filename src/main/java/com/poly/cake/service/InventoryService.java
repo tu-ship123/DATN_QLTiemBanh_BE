@@ -44,8 +44,8 @@ public class InventoryService {
 
     private EmailService emailService;
 
-private PhieuKiemKeRepository phieuKiemKeRepository; // Bổ sung Repository
- dev
+    private PhieuKiemKeRepository phieuKiemKeRepository; // Bổ sung Repository
+
 
     private static final List<String> NGUOI_NHAN_CANH_BAO = List.of("ADMIN", "NHAN_VIEN");
 

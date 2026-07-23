@@ -92,6 +92,20 @@ public class OrderDto {
 
         /** T055 – Có thiết kế 3D không? (true/false để FE hiện nút "Xem 3D") */
         private Boolean coThietKe3D;
+
+        // DF_ST06 – Trạng thái yêu cầu sửa đơn gần nhất của khách (nếu có):
+        // CHO_XU_LY / DA_XU_LY / null (chưa từng gửi yêu cầu nào)
+        private String trangThaiYeuCauSuaDon;
+    }
+
+    // ── DF_ST05: "Đặt lại đơn cũ" (Re-order) ─────────────────────────────────
+    // Trả về giỏ hàng sau khi đã copy TOÀN BỘ sản phẩm của đơn cũ vào giỏ,
+    // kèm danh sách sản phẩm không thể thêm lại được (nếu có) để FE báo cho khách.
+    @Data
+    public static class ReorderResponse {
+        private GioHangDto.GioHangResponse gioHang;
+        private Integer soSanPhamDaThem;
+        private List<String> sanPhamBiBoQua;
     }
 
     @Data
