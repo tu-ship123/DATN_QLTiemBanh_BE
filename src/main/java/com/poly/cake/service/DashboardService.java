@@ -46,11 +46,15 @@ public class DashboardService {
         double phanTramDoanhThu = calculateGrowth(doanhThuHqua.doubleValue(), doanhThuHnay.doubleValue());
         double phanTramDon = calculateGrowth(donHqua.doubleValue(), donHnay.doubleValue());
 
+        // Số đơn đang trong quá trình sản xuất (không phụ thuộc mốc ngày, luôn là số hiện tại)
+        Long dangSanXuat = donHangRepository.countDonHangDangSanXuat();
+
         // Đóng gói trả về
         Map<String, Object> result = new HashMap<>();
         result.put("tongDoanhThu", doanhThuHnay);
         result.put("tongDon", donHnay);
         result.put("khachMoi", khachMoiHnay);
+        result.put("dangSanXuat", dangSanXuat);
         result.put("tangTruongDoanhThu", phanTramDoanhThu);
         result.put("tangTruongDon", phanTramDon);
 
