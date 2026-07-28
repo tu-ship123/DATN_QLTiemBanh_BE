@@ -68,6 +68,11 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
     @Query("SELECT COUNT(d) FROM DonHang d WHERE d.trangThai <> 'DA_HUY' AND d.ngayTao >= :startDate AND d.ngayTao < :endDate")
     Long countDonHangByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
+    // Đếm số đơn đang trong quá trình sản xuất (dùng cho thẻ KPI "Đang sản xuất" ở Dashboard)
+    // Khớp đúng danh sách trạng thái mà FE (Dashboard.vue) đang coi là "đang sản xuất"
+    @Query("SELECT COUNT(d) FROM DonHang d WHERE d.trangThai IN ('DA_XAC_NHAN','DANG_CHUAN_BI','DANG_LAM','SAN_SANG')")
+    Long countDonHangDangSanXuat();
+
     // Lấy báo cáo doanh thu nhóm theo ngày (Dùng Native Query cho SQL Server)
     @Query(value = "SELECT CAST(ngay_tao AS DATE) as date, SUM(tong_tien) as revenue " +
             "FROM don_hang WHERE trang_thai != 'DA_HUY' " +
@@ -117,4 +122,3 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
     List<HieuSuatNhanVienDto> getHieuSuatNhanVienTheoKhoang(@Param("tuNgay") LocalDateTime tuNgay,
                                                              @Param("denNgay") LocalDateTime denNgay);
 }
-
