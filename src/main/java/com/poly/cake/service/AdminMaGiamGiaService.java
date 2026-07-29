@@ -1,7 +1,7 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 
 import com.poly.cake.dto.MaGiamGiaDto;
 import com.poly.cake.entity.DonHang;
@@ -34,7 +34,7 @@ public class AdminMaGiamGiaService {
 
     private final DonHangRepository donHangRepository;
 
-    private final EmailService emailService;
+    private final DichVuEmail emailService;
 
     // GET ALL
     public List<MaGiamGiaDto.Response> getAll() {
@@ -47,7 +47,7 @@ public class AdminMaGiamGiaService {
     // GET BY ID
     public MaGiamGiaDto.Response getById(Long id) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy mã giảm giá"));
         return mapToDto(voucher);
     }
 
@@ -55,10 +55,10 @@ public class AdminMaGiamGiaService {
     @Transactional
     public MaGiamGiaDto.Response create(MaGiamGiaDto.Request request) {
         if (maGiamGiaRepository.existsByMaCode(request.getMaCode())) {
-            throw new BusinessException("Mã giảm giá đã tồn tại");
+            throw new NgoaiLeNghiepVu("Mã giảm giá đã tồn tại");
         }
         if (request.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Ngày hết hạn phải lớn hơn hiện tại");
+            throw new NgoaiLeNghiepVu("Ngày hết hạn phải lớn hơn hiện tại");
         }
 
         MaGiamGia voucher = new MaGiamGia();
@@ -78,7 +78,7 @@ public class AdminMaGiamGiaService {
     @Transactional
     public MaGiamGiaDto.Response update(Long id, MaGiamGiaDto.Request request) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy mã giảm giá"));
 
         voucher.setMaCode(request.getMaCode().toUpperCase());
         voucher.setLoaiGiamGia(request.getLoaiGiamGia());
@@ -96,13 +96,13 @@ public class AdminMaGiamGiaService {
     @Transactional(readOnly = true)
     public int sendPromoEmailToAllCustomers(Long voucherId) {
         MaGiamGia voucher = maGiamGiaRepository.findById(voucherId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy mã giảm giá"));
 
         if (!Boolean.TRUE.equals(voucher.getHoatDong())) {
-            throw new BusinessException("Voucher chưa được kích hoạt, không thể gửi email");
+            throw new NgoaiLeNghiepVu("Voucher chưa được kích hoạt, không thể gửi email");
         }
         if (voucher.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Voucher đã hết hạn, không thể gửi email");
+            throw new NgoaiLeNghiepVu("Voucher đã hết hạn, không thể gửi email");
         }
 
         List<NguoiDung> khachHangList = nguoiDungRepository.findAll()
@@ -141,7 +141,7 @@ public class AdminMaGiamGiaService {
     @Transactional
     public void delete(Long id) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy mã giảm giá"));
         maGiamGiaRepository.delete(voucher);
     }
 
@@ -149,7 +149,7 @@ public class AdminMaGiamGiaService {
     @Transactional(readOnly = true)
     public Map<String, Object> getUsage(Long id) {
         MaGiamGia voucher = maGiamGiaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy mã giảm giá"));
 
         List<DonHang> donHangs = donHangRepository.findByMaGiamGiaId(id);
 

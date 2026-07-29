@@ -1,8 +1,8 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
+import com.poly.cake.exception.NgoaiLeCamTruyCap;
 
 import com.poly.cake.dto.KhachHangDto;
 import com.poly.cake.entity.DiemThuong;
@@ -78,7 +78,7 @@ public class AdminKhachHangService {
         if (req.getDiemThayDoi() < 0) {
             Integer tongDiem = diemThuongRepository.tinhTongDiem(kh);
             if (tongDiem + req.getDiemThayDoi() < 0) {
-                throw new BusinessException("Khách không đủ điểm để trừ. Điểm hiện có: " + tongDiem);
+                throw new NgoaiLeNghiepVu("Khách không đủ điểm để trừ. Điểm hiện có: " + tongDiem);
             }
         }
 
@@ -103,9 +103,9 @@ public class AdminKhachHangService {
 
     private NguoiDung findKhachHang(Long id) {
         NguoiDung kh = nguoiDungRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với id=" + id));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy khách hàng với id=" + id));
         if (!"KHACH_HANG".equals(kh.getQuyen())) {
-            throw new ForbiddenException("Người dùng này không phải khách hàng");
+            throw new NgoaiLeCamTruyCap("Người dùng này không phải khách hàng");
         }
         return kh;
     }

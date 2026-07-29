@@ -110,7 +110,7 @@ public class DonHang {
     // qua nhiều đường (process/status), (2) khi hủy/hoàn tiền biết chính xác có
     // cần cộng trả tồn kho hay không (chỉ cộng trả nếu trước đó ĐÃ thực sự trừ).
     @Builder.Default
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "bit not null default 0")
     private Boolean daTruTonKho = false;
 
     // Mapping 1-Nhiều với bảng chi tiết đơn hàng

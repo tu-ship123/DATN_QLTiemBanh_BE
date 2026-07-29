@@ -1,0 +1,81 @@
+package com.poly.cake.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+public class XacThucDto {
+
+    @Data
+    public static class RegisterRequest {
+        @NotBlank(message = "Họ tên không được để trống")
+        @Size(max = 150, message = "Họ tên tối đa 150 ký tự")
+        private String hoTen;
+
+        @NotBlank(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
+        private String email;
+
+        @NotBlank(message = "Mật khẩu không được để trống")
+        @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
+        private String matKhau;
+
+        // Cho phép để trống, nhưng nếu nhập thì phải đúng định dạng SĐT Việt Nam
+        @Pattern(regexp = "^$|^(0|\\+84)[0-9]{8,10}$", message = "Số điện thoại không hợp lệ")
+        private String soDienThoai;
+    }
+
+    @Data
+    public static class LoginRequest {
+        @NotBlank(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
+        private String email;
+
+        @NotBlank(message = "Mật khẩu không được để trống")
+        private String matKhau;
+
+        private String totpCode;
+    }
+
+    @Data
+    public static class AuthResponse {
+        private String accessToken;
+        private String refreshToken;
+    }
+
+    @Data
+    public static class TotpSetupResponse {
+        private String secret;
+        private String qrCodeUri;
+    }
+
+    @Data
+    public static class ForgotPasswordRequest {
+        @NotBlank(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
+        private String email;
+    }
+
+    @Data
+    public static class ResetPasswordRequest {
+        @NotBlank(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
+        private String email;
+
+        @NotBlank(message = "OTP không được để trống")
+        private String otp;
+
+        @NotBlank(message = "Mật khẩu mới không được để trống")
+        @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự")
+        private String newPassword;
+    }
+
+    // T065: Đăng nhập/Đăng ký bằng Google OAuth2
+    @Data
+    public static class GoogleLoginRequest {
+        @NotBlank(message = "idToken không được để trống")
+        private String idToken;
+    }
+}

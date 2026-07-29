@@ -1,6 +1,6 @@
 package com.poly.cake.controller;
 
-import com.poly.cake.service.DiscordWebhookService;
+import com.poly.cake.service.DichVuWebhookDiscord;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,13 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
-// Path "/api/v1/admin/**" đã được bảo vệ ROLE_ADMIN sẵn trong SecurityConfig
+// Path "/api/v1/admin/**" đã được bảo vệ ROLE_ADMIN sẵn trong CauHinhBaoMat
 @RestController
 @RequestMapping("/api/v1/admin/webhook")
 @RequiredArgsConstructor
 public class AdminWebhookController {
 
-    private final DiscordWebhookService discordWebhookService;
+    private final DichVuWebhookDiscord discordWebhookService;
 
     // Trạng thái cấu hình webhook Discord hiện tại (không lộ URL thật)
     @GetMapping("/status")

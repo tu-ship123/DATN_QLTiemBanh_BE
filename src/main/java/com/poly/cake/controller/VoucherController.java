@@ -1,6 +1,6 @@
 package com.poly.cake.controller;
 
-import com.poly.cake.dto.VoucherValidateDto;
+import com.poly.cake.dto.VoucherKiemTraDto;
 import com.poly.cake.service.VoucherService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
  * T070 – Base path: /api/v1/vouchers
  *
  * Endpoint kiểm tra mã giảm giá/voucher TRƯỚC khi đặt hàng. Yêu cầu đăng nhập
- * (khách hàng) — xem SecurityConfig.
+ * (khách hàng) — xem CauHinhBaoMat.
  */
 @RestController
 @RequestMapping("/api/v1/vouchers")
@@ -30,8 +30,8 @@ public class VoucherController {
      * của 1 mã giảm giá (maCode) hoặc 1 voucher cá nhân (voucherKhachHangId).
      */
     @PostMapping("/validate")
-    public ResponseEntity<VoucherValidateDto.Response> validate(
-            @Valid @RequestBody VoucherValidateDto.Request request,
+    public ResponseEntity<VoucherKiemTraDto.Response> validate(
+            @Valid @RequestBody VoucherKiemTraDto.Request request,
             Authentication authentication) {
 
         return ResponseEntity.ok(voucherService.validate(request, authentication.getName()));

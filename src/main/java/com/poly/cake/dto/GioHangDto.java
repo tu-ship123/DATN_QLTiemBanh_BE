@@ -27,7 +27,7 @@ public class GioHangDto {
          * Giá bánh 3D tùy chỉnh do FE (CakeBuilder3D) tính sẵn, gửi kèm CHỈ ĐỂ THAM KHẢO.
          * BE KHÔNG dùng số này để lưu giá - luôn tự tính lại giá thật từ thietKeBanhJson
          * (size + số tầng + phụ kiện, tra giá thật trong DB) để tránh bị sửa giá qua
-         * DevTools/Postman. Xem CakeDesignPricingService.tinhGiaChuan().
+         * DevTools/Postman. Xem ThietKeBanhDinhGiaService.tinhGiaChuan().
          */
         @DecimalMin(value = "0.0", message = "Đơn giá tùy chỉnh không hợp lệ")
         private java.math.BigDecimal donGiaTuyChinh;

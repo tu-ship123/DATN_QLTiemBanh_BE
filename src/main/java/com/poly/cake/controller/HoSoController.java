@@ -1,6 +1,6 @@
 package com.poly.cake.controller;
 
-import com.poly.cake.dto.AuthDto.AuthResponse;
+import com.poly.cake.dto.XacThucDto.AuthResponse;
 import com.poly.cake.dto.HoSoDto.ChangePasswordRequest;
 import com.poly.cake.dto.HoSoDto.ProfileResponse;
 import com.poly.cake.dto.HoSoDto.UpdateProfileRequest;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * T066: API Cập nhật Profile + Đổi mật khẩu.
  * Áp dụng cho MỌI người dùng đã đăng nhập (khách hàng, nhân viên, admin) tự
  * quản lý thông tin của chính mình — không cần khai báo lại trong
- * SecurityConfig vì "/api/v1/users/**" đã rơi vào rule mặc định
+ * CauHinhBaoMat vì "/api/v1/users/**" đã rơi vào rule mặc định
  * ".anyRequest().authenticated()".
  */
 @RestController

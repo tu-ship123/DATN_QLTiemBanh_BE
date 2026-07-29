@@ -1,8 +1,8 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
+import com.poly.cake.exception.NgoaiLeCamTruyCap;
 
 import com.poly.cake.dto.ChamCongResponse;
 import com.poly.cake.dto.KetCaRequest;
@@ -42,7 +42,7 @@ public class KetCaService {
     private NguoiDung getNhanVienHienTai() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng: " + email));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy người dùng: " + email));
     }
 
     @Transactional
@@ -52,42 +52,42 @@ public class KetCaService {
         String loai = request.getLoaiBaoCao() == null
                 ? null : request.getLoaiBaoCao().toUpperCase().trim();
         if (loai == null || !LOAI_HOP_LE.contains(loai)) {
-            throw new BusinessException(
+            throw new NgoaiLeNghiepVu(
                     "loaiBaoCao không hợp lệ. Chỉ chấp nhận: X_REPORT hoặc Z_REPORT.");
         }
 
         PhanCa phanCa = phanCaRepository
                 .findByIdAndNhanVienId(request.getPhanCaId(), nhanVien.getId())
-                .orElseThrow(() -> new ForbiddenException(
+                .orElseThrow(() -> new NgoaiLeCamTruyCap(
                         "Không tìm thấy phân ca #" + request.getPhanCaId()
                                 + " hoặc bạn không có quyền truy cập."));
 
         switch (phanCa.getTrangThai()) {
             case "DA_HUY":
-                throw new BusinessException("Ca này đã bị hủy, không thể kết ca.");
+                throw new NgoaiLeNghiepVu("Ca này đã bị hủy, không thể kết ca.");
             case "DA_KET_CA":
-                throw new BusinessException(
+                throw new NgoaiLeNghiepVu(
                         "Ca này đã kết ca chính thức (Z-Report) rồi, không thể thực hiện lại.");
             case "DA_LAP":
-                throw new BusinessException(
+                throw new NgoaiLeNghiepVu(
                         "Bạn chưa check-in ca này. Hãy check-in trước khi kết ca.");
             default:
                 break;
         }
 
         ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen(
                         "Không tìm thấy bản ghi chấm công cho ca này."));
 
         if (Z_REPORT.equals(chamCong.getLoaiBaoCao())) {
-            throw new BusinessException("Ca này đã có Z-Report rồi.");
+            throw new NgoaiLeNghiepVu("Ca này đã có Z-Report rồi.");
         }
 
         LocalDateTime tuThoiDiem  = chamCong.getGioVao();
         LocalDateTime denThoiDiem = LocalDateTime.now();
 
         if (tuThoiDiem == null) {
-            throw new BusinessException("Dữ liệu chấm công không hợp lệ (giờ vào trống).");
+            throw new NgoaiLeNghiepVu("Dữ liệu chấm công không hợp lệ (giờ vào trống).");
         }
 
         List<Object[]> rows = thanhToanRepository
@@ -136,11 +136,11 @@ public class KetCaService {
 
         PhanCa phanCa = phanCaRepository
                 .findByIdAndNhanVienId(phanCaId, nhanVien.getId())
-                .orElseThrow(() -> new ForbiddenException(
+                .orElseThrow(() -> new NgoaiLeCamTruyCap(
                         "Không tìm thấy phân ca #" + phanCaId + " hoặc không có quyền xem."));
 
         ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
-                .orElseThrow(() -> new BusinessException(
+                .orElseThrow(() -> new NgoaiLeNghiepVu(
                         "Chưa có bản ghi chấm công cho ca này (chưa check-in)."));
 
         return mapToResponse(chamCong);

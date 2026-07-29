@@ -16,7 +16,7 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long> {
     @Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon + :qty WHERE s.id = :id")
     int congLaiSoLuongTon(@Param("id") Long id, @Param("qty") int qty);
 
-    // Tạm thời chưa cần viết thêm hàm gì, JpaRepository đã cung cấp sẵn hàm findById() cho OrderService dùng rồi.
+    // Tạm thời chưa cần viết thêm hàm gì, JpaRepository đã cung cấp sẵn hàm findById() cho DatHangService dùng rồi.
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE SanPham s SET s.soLuongTon = s.soLuongTon - :qty WHERE s.id = :id AND s.soLuongTon >= :qty")
     int truSoLuongTon(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("qty") int qty);

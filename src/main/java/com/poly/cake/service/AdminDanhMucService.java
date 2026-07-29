@@ -1,7 +1,7 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 
 import com.poly.cake.dto.DanhMucDto;
 import com.poly.cake.entity.DanhMuc;
@@ -33,7 +33,7 @@ public class AdminDanhMucService {
 
         DanhMuc danhMuc = danhMucRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy danh mục"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy danh mục"));
 
         return mapToResponseDto(danhMuc);
     }
@@ -43,7 +43,7 @@ public class AdminDanhMucService {
     public DanhMucDto.Response createDanhMuc(DanhMucDto.Request request) {
 
         if (danhMucRepository.existsByTenDanhMuc(request.getTenDanhMuc())) {
-            throw new BusinessException("Tên danh mục đã tồn tại");
+            throw new NgoaiLeNghiepVu("Tên danh mục đã tồn tại");
         }
 
         DanhMuc danhMuc = new DanhMuc();
@@ -63,7 +63,7 @@ public class AdminDanhMucService {
 
         DanhMuc danhMuc = danhMucRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy danh mục"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy danh mục"));
 
         danhMuc.setTenDanhMuc(request.getTenDanhMuc());
         danhMuc.setMoTa(request.getMoTa());
@@ -81,7 +81,7 @@ public class AdminDanhMucService {
 
         DanhMuc danhMuc = danhMucRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy danh mục"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy danh mục"));
 
         danhMucRepository.delete(danhMuc);
     }

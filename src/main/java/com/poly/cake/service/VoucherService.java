@@ -1,10 +1,10 @@
 package com.poly.cake.service;
 
-import com.poly.cake.dto.VoucherValidateDto;
+import com.poly.cake.dto.VoucherKiemTraDto;
 import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.VoucherKhachHang;
-import com.poly.cake.exception.BusinessException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
 import com.poly.cake.repository.MaGiamGiaRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.VoucherKhachHangRepository;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 
 /**
  * T070 – Kiểm tra ĐẦY ĐỦ điều kiện của mã giảm giá / voucher cá nhân, tách
- * riêng khỏi GioHangService và OrderService để dùng chung được cho cả khách
+ * riêng khỏi GioHangService và DatHangService để dùng chung được cho cả khách
  * vãng lai (guest, không có giỏ hàng persist) lẫn khách đã đăng nhập, mà
  * KHÔNG cần phải thao tác/đụng vào giỏ hàng.
  */
@@ -31,13 +31,13 @@ public class VoucherService {
     /**
      * @param emailNguoiDung email khách đã đăng nhập, NULL nếu là khách vãng lai (guest)
      */
-    public VoucherValidateDto.Response validate(VoucherValidateDto.Request request, String emailNguoiDung) {
+    public VoucherKiemTraDto.Response validate(VoucherKiemTraDto.Request request, String emailNguoiDung) {
         boolean coMaCode = request.getMaCode() != null && !request.getMaCode().isBlank();
         boolean coVoucherCaNhan = request.getVoucherKhachHangId() != null;
 
         if (coMaCode == coVoucherCaNhan) {
             // Cả 2 cùng trống hoặc cùng có -> yêu cầu không rõ ràng
-            throw new BusinessException("Vui lòng gửi ĐÚNG 1 trong 2: mã giảm giá (maCode) hoặc voucherKhachHangId!");
+            throw new NgoaiLeNghiepVu("Vui lòng gửi ĐÚNG 1 trong 2: mã giảm giá (maCode) hoặc voucherKhachHangId!");
         }
 
         BigDecimal tongTienHang = request.getTongTienHang();
@@ -48,17 +48,17 @@ public class VoucherService {
 
         // ── Voucher cá nhân: bắt buộc phải đăng nhập vì voucher gắn với tài khoản ──
         if (emailNguoiDung == null || emailNguoiDung.isBlank()) {
-            throw new BusinessException("Voucher cá nhân chỉ áp dụng được khi bạn đã đăng nhập!");
+            throw new NgoaiLeNghiepVu("Voucher cá nhân chỉ áp dụng được khi bạn đã đăng nhập!");
         }
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailNguoiDung)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin tài khoản!"));
+                .orElseThrow(() -> new NgoaiLeNghiepVu("Không tìm thấy thông tin tài khoản!"));
 
         return validateVoucherCaNhan(request.getVoucherKhachHangId(), khachHang, tongTienHang);
     }
 
     // ─── MÃ GIẢM GIÁ (public code) ────────────────────────────────────────────
-    private VoucherValidateDto.Response validateMaGiamGia(String maCode, BigDecimal tongTienHang) {
-        VoucherValidateDto.Response res = new VoucherValidateDto.Response();
+    private VoucherKiemTraDto.Response validateMaGiamGia(String maCode, BigDecimal tongTienHang) {
+        VoucherKiemTraDto.Response res = new VoucherKiemTraDto.Response();
         res.setLoaiUuDai("MA_GIAM_GIA");
         res.setMaCode(maCode);
 
@@ -95,8 +95,8 @@ public class VoucherService {
     }
 
     // ─── VOUCHER CÁ NHÂN (đổi bằng điểm / được tặng) ───────────────────────────
-    private VoucherValidateDto.Response validateVoucherCaNhan(Long voucherId, NguoiDung khachHang, BigDecimal tongTienHang) {
-        VoucherValidateDto.Response res = new VoucherValidateDto.Response();
+    private VoucherKiemTraDto.Response validateVoucherCaNhan(Long voucherId, NguoiDung khachHang, BigDecimal tongTienHang) {
+        VoucherKiemTraDto.Response res = new VoucherKiemTraDto.Response();
         res.setLoaiUuDai("VOUCHER_CA_NHAN");
 
         VoucherKhachHang voucher = voucherKhachHangRepository
@@ -140,14 +140,14 @@ public class VoucherService {
         return soTienGiam.min(tongTienHang);
     }
 
-    private VoucherValidateDto.Response khongHopLe(VoucherValidateDto.Response res, String message) {
+    private VoucherKiemTraDto.Response khongHopLe(VoucherKiemTraDto.Response res, String message) {
         res.setHopLe(false);
         res.setSoTienGiam(BigDecimal.ZERO);
         res.setMessage(message);
         return res;
     }
 
-    private VoucherValidateDto.Response hopLe(VoucherValidateDto.Response res, BigDecimal soTienGiam, BigDecimal tongTienHang) {
+    private VoucherKiemTraDto.Response hopLe(VoucherKiemTraDto.Response res, BigDecimal soTienGiam, BigDecimal tongTienHang) {
         res.setHopLe(true);
         res.setSoTienGiam(soTienGiam);
         res.setTongTienSauGiam(tongTienHang.subtract(soTienGiam));

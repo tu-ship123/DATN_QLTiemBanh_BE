@@ -5,7 +5,7 @@ import com.poly.cake.dto.PhieuNhapDto;
 import com.poly.cake.dto.PhieuNhapResponseDto;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.PhieuNhapKho;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.service.PhieuNhapService;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin/phieu-nhap")
 @RequiredArgsConstructor
 // LƯU Ý BẢO MẬT: path này là "/api/admin/..." (thiếu "v1") nên KHÔNG khớp rule
-// "/api/v1/admin/**" trong SecurityConfig -> nếu không có @PreAuthorize ở đây thì
+// "/api/v1/admin/**" trong CauHinhBaoMat -> nếu không có @PreAuthorize ở đây thì
 // bất kỳ user đã đăng nhập nào (kể cả khách hàng) cũng gọi được API này.
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminPhieuNhapController {
@@ -28,7 +28,7 @@ public class AdminPhieuNhapController {
 
     private Long currentUserId(Authentication authentication) {
         NguoiDung user = nguoiDungRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Tài khoản không tồn tại!"));
         return user.getId();
     }
 

@@ -1,17 +1,17 @@
 package com.poly.cake.controller;
 
-import com.poly.cake.service.ChatbotHistoryService;
+import com.poly.cake.service.ChatbotLichSuService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-// Path "/api/v1/admin/**" đã được bảo vệ ROLE_ADMIN sẵn trong SecurityConfig
+// Path "/api/v1/admin/**" đã được bảo vệ ROLE_ADMIN sẵn trong CauHinhBaoMat
 @RestController
 @RequestMapping("/api/v1/admin/chatbot")
 @RequiredArgsConstructor
 public class AdminChatbotController {
 
-    private final ChatbotHistoryService chatbotHistoryService;
+    private final ChatbotLichSuService chatbotHistoryService;
 
     // Danh sách các phiên chat với bot (mỗi dòng = 1 khách hoặc 1 phiên khách vãng lai)
     @GetMapping("/conversations")

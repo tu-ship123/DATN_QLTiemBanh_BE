@@ -1,7 +1,7 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 
 import com.poly.cake.dto.CaLamViecRequest;
 import com.poly.cake.dto.CaLamViecResponse;
@@ -38,7 +38,7 @@ public class PhanCaService {
     private NguoiDung getNhanVienHienTai() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy người dùng"));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -62,7 +62,7 @@ public class PhanCaService {
     public CaLamViecResponse createCaLamViec(CaLamViecRequest request) {
         if (request.getGioKetThuc().isBefore(request.getGioBatDau()) ||
                 request.getGioKetThuc().equals(request.getGioBatDau())) {
-            throw new BusinessException("Giờ kết thúc phải sau giờ bắt đầu");
+            throw new NgoaiLeNghiepVu("Giờ kết thúc phải sau giờ bắt đầu");
         }
 
         CaLamViec ca = CaLamViec.builder()
@@ -81,11 +81,11 @@ public class PhanCaService {
     @Transactional
     public CaLamViecResponse updateCaLamViec(Long id, CaLamViecRequest request) {
         CaLamViec ca = caLamViecRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy ca làm việc"));
 
         if (request.getGioKetThuc().isBefore(request.getGioBatDau()) ||
                 request.getGioKetThuc().equals(request.getGioBatDau())) {
-            throw new BusinessException("Giờ kết thúc phải sau giờ bắt đầu");
+            throw new NgoaiLeNghiepVu("Giờ kết thúc phải sau giờ bắt đầu");
         }
 
         ca.setTenCa(request.getTenCa());
@@ -104,7 +104,7 @@ public class PhanCaService {
     @Transactional
     public void deleteCaLamViec(Long id) {
         CaLamViec ca = caLamViecRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy ca làm việc"));
         ca.setHoatDong(false);
         caLamViecRepository.save(ca);
     }
@@ -119,13 +119,13 @@ public class PhanCaService {
     @Transactional
     public PhanCaResponse createPhanCa(PhanCaRequest request) {
         NguoiDung nhanVien = nguoiDungRepository.findById(request.getNhanVienId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy nhân viên"));
 
         CaLamViec caLamViec = caLamViecRepository.findById(request.getCaLamViecId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy ca làm việc"));
 
         if (!Boolean.TRUE.equals(caLamViec.getHoatDong())) {
-            throw new BusinessException("Ca làm việc này đã bị vô hiệu hoá");
+            throw new NgoaiLeNghiepVu("Ca làm việc này đã bị vô hiệu hoá");
         }
 
         // Kiểm tra trùng ca
@@ -133,7 +133,7 @@ public class PhanCaService {
                 request.getNhanVienId(), request.getCaLamViecId(), request.getNgayLamViec()
         );
         if (trung) {
-            throw new BusinessException("Nhân viên này đã được phân ca " + caLamViec.getTenCa()
+            throw new NgoaiLeNghiepVu("Nhân viên này đã được phân ca " + caLamViec.getTenCa()
                     + " vào ngày " + request.getNgayLamViec() + " rồi");
         }
 
@@ -164,10 +164,10 @@ public class PhanCaService {
     @Transactional
     public PhanCaResponse huyPhanCa(Long id) {
         PhanCa phanCa = phanCaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân ca"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy phân ca"));
 
         if ("XAC_NHAN".equals(phanCa.getTrangThai())) {
-            throw new BusinessException("Không thể huỷ ca đã xác nhận (nhân viên đã check-in)");
+            throw new NgoaiLeNghiepVu("Không thể huỷ ca đã xác nhận (nhân viên đã check-in)");
         }
 
         phanCa.setTrangThai("DA_HUY");

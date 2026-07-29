@@ -3,7 +3,7 @@ package com.poly.cake.repository;
 import com.poly.cake.dto.DoanhThuKenhDto;
 import com.poly.cake.dto.HieuSuatNhanVienDto;
 import com.poly.cake.dto.TopSanPhamDto;
-import com.poly.cake.dto.VoucherUsageDto;
+import com.poly.cake.dto.VoucherSuDungDto;
 import com.poly.cake.entity.DonHang;
 import com.poly.cake.entity.NguoiDung;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -99,13 +99,13 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long> {
             "ORDER BY SUM(d.tongTien) DESC")
     List<HieuSuatNhanVienDto> getHieuSuatNhanVien();
 
-    @Query("SELECT new com.poly.cake.dto.VoucherUsageDto(m.maCode, k.id, k.hoTen, d.id, d.ngayTao) " +
+    @Query("SELECT new com.poly.cake.dto.VoucherSuDungDto(m.maCode, k.id, k.hoTen, d.id, d.ngayTao) " +
             "FROM DonHang d " +
             "JOIN d.maGiamGia m " +
             "JOIN d.khachHang k " +
             "WHERE (:maCode IS NULL OR m.maCode = :maCode) " +
             "ORDER BY m.maCode, d.ngayTao DESC")
-    List<VoucherUsageDto> getVoucherUsage(@Param("maCode") String maCode);
+    List<VoucherSuDungDto> getVoucherUsage(@Param("maCode") String maCode);
 
     // Danh sách đơn hàng đã áp dụng 1 mã giảm giá cụ thể (dùng cho trang lịch sử dùng voucher)
     @Query("SELECT d FROM DonHang d JOIN FETCH d.khachHang WHERE d.maGiamGia.id = :maGiamGiaId ORDER BY d.ngayTao DESC")
