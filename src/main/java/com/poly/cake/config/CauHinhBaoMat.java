@@ -1,0 +1,111 @@
+package com.poly.cake.config;
+
+import com.poly.cake.security.BoLocJwt;
+import com.poly.cake.security.BoXuLyTuChoiTruyCap;
+import com.poly.cake.security.BoLocGioiHanTanSuat;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class CauHinhBaoMat {
+
+    private final BoLocJwt jwtFilter;
+    private final AuthenticationProvider authenticationProvider;
+    private final BoLocGioiHanTanSuat rateLimitingFilter;
+    private final BoXuLyTuChoiTruyCap customAccessDeniedHandler;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                // Public endpoints
+                .requestMatchers("/api/v1/payment/sepay-webhook").permitAll()
+                .requestMatchers("/api/v1/health", "/api/v1/health/**").permitAll() // T103: Health Check public
+                .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/accessories/**", "/ws-bakery/**").permitAll()
+
+                // Trợ lý ảo AI: cho phép cả khách vãng lai (chưa đăng nhập) sử dụng
+                .requestMatchers("/api/v1/chatbot/**").permitAll()
+
+                        // T070 – Validate mã giảm giá/voucher trước khi đặt hàng (chỉ khách đã đăng nhập)
+                        .requestMatchers("/api/v1/vouchers/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                        // Admin + Nhân viên đều quản lý sản phẩm, danh mục và đánh giá
+                        .requestMatchers("/api/v1/admin/products", "/api/v1/admin/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/categories", "/api/v1/admin/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers("/api/v1/admin/reviews", "/api/v1/admin/reviews/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                        // T080 – Đơn hàng: Nhân viên (bếp/giao hàng) cũng cần truy cập để lọc đơn,
+                        // xem chi tiết/in bill, ghi chú nội bộ, quét mã vạch giao hàng, đổi trạng thái
+                        // theo flow chuẩn... Các thao tác nhạy cảm hơn (override, refund, hủy ép buộc)
+                        // vẫn chỉ dành cho ADMIN nhờ @PreAuthorize("hasRole('ADMIN')") riêng ở từng
+                        // method trong AdminOrderController.
+                        .requestMatchers("/api/v1/admin/orders", "/api/v1/admin/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                        // Admin only (các phần còn lại)
+                        .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
+
+                        // Admin + Staff
+                        .requestMatchers("/api/v1/pos/**", "/api/v1/shifts/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+
+                        // Cart & Orders — phải có .hasAnyAuthority() ngay liền sau
+                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**", "/api/v1/orders", "/api/v1/orders/**")
+                        .hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN") // ✅ gắn liền
+
+                        // Loyalty
+                        .requestMatchers("/api/v1/loyalty/pos/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                        .requestMatchers("/api/v1/loyalty/**").hasAnyAuthority("ROLE_KHACH_HANG", "ROLE_ADMIN", "ROLE_NHAN_VIEN")
+                                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+
+                .exceptionHandling(customizer ->
+                        customizer.accessDeniedHandler(customAccessDeniedHandler)
+                )
+
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+config.setAllowedOriginPatterns(Arrays.asList(
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://app.chocopine.xyz"
+));        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+}

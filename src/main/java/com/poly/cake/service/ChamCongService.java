@@ -1,11 +1,11 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
+import com.poly.cake.exception.NgoaiLeCamTruyCap;
 
 import lombok.extern.slf4j.Slf4j;
-import com.poly.cake.dto.StaffCheckinRequest;
+import com.poly.cake.dto.NhanVienCheckinRequest;
 import com.poly.cake.dto.ChamCongResponse;
 import com.poly.cake.entity.ChamCong;
 import com.poly.cake.entity.NguoiDung;
@@ -39,7 +39,7 @@ public class ChamCongService {
     private NguoiDung getNhanVienHienTai() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy người dùng"));
     }
 
     /**
@@ -49,23 +49,23 @@ public class ChamCongService {
      * việc của ca là cố định, không cần tính lại lúc check-out.
      */
     @Transactional
-    public ChamCongResponse checkIn(StaffCheckinRequest request) {
+    public ChamCongResponse checkIn(NhanVienCheckinRequest request) {
         log.debug("Đang xử lý chấm công cho phanCaId: {}", request.getPhanCaId());
         NguoiDung nhanVien = getNhanVienHienTai();
         log.debug("ID nhân viên hiện tại: {}", nhanVien.getId());
 
         // Tìm phân ca theo id và đảm bảo là ca của nhân viên này
         PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(request.getPhanCaId(), nhanVien.getId())
-                .orElseThrow(() -> new ForbiddenException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
+                .orElseThrow(() -> new NgoaiLeCamTruyCap("Không tìm thấy phân ca hoặc không có quyền truy cập"));
 
         // Kiểm tra trạng thái phân ca
         if ("DA_HUY".equals(phanCa.getTrangThai())) {
-            throw new BusinessException("Ca làm việc này đã bị hủy");
+            throw new NgoaiLeNghiepVu("Ca làm việc này đã bị hủy");
         }
 
         // Kiểm tra đã check-in chưa
         if (chamCongRepository.existsByPhanCa(phanCa)) {
-            throw new BusinessException("Bạn đã check-in ca này rồi");
+            throw new NgoaiLeNghiepVu("Bạn đã check-in ca này rồi");
         }
 
         LocalDateTime gioVaoThucTe = LocalDateTime.now();
@@ -111,13 +111,13 @@ public class ChamCongService {
         NguoiDung nhanVien = getNhanVienHienTai();
 
         PhanCa phanCa = phanCaRepository.findByIdAndNhanVienId(phanCaId, nhanVien.getId())
-                .orElseThrow(() -> new ForbiddenException("Không tìm thấy phân ca hoặc không có quyền truy cập"));
+                .orElseThrow(() -> new NgoaiLeCamTruyCap("Không tìm thấy phân ca hoặc không có quyền truy cập"));
 
         ChamCong chamCong = chamCongRepository.findByPhanCa(phanCa)
-                .orElseThrow(() -> new BusinessException("Bạn chưa check-in ca này"));
+                .orElseThrow(() -> new NgoaiLeNghiepVu("Bạn chưa check-in ca này"));
 
         if (chamCong.getGioRa() != null) {
-            throw new BusinessException("Bạn đã check-out ca này rồi");
+            throw new NgoaiLeNghiepVu("Bạn đã check-out ca này rồi");
         }
 
         LocalDateTime gioRaThucTe = LocalDateTime.now();

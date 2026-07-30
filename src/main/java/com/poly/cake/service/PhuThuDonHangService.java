@@ -2,8 +2,8 @@ package com.poly.cake.service;
 
 import com.poly.cake.dto.PhuThuDonHangDto;
 import com.poly.cake.entity.PhuThuDonHang;
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 import com.poly.cake.repository.PhuThuDonHangRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 /**
  * T102 – Quản lý cấu hình phụ thu dịp đặc biệt (Admin CRUD) và tính %
- * phụ thu áp dụng cho 1 ngày cụ thể để OrderService/PosOrderService dùng
+ * phụ thu áp dụng cho 1 ngày cụ thể để DatHangService/PosDatHangService dùng
  * khi tạo đơn hàng.
  */
 @Service
@@ -81,13 +81,13 @@ public class PhuThuDonHangService {
 
     private void kiemTraNgayHopLe(PhuThuDonHangDto.Request request) {
         if (request.getNgayKetThuc().isBefore(request.getNgayBatDau())) {
-            throw new BusinessException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu");
+            throw new NgoaiLeNghiepVu("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu");
         }
     }
 
     private PhuThuDonHang timTheoId(Long id) {
         return phuThuDonHangRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình phụ thu với id: " + id));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy cấu hình phụ thu với id: " + id));
     }
 
     private PhuThuDonHangDto.Response mapToResponse(PhuThuDonHang entity) {

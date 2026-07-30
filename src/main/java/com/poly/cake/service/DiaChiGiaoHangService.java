@@ -3,7 +3,7 @@ package com.poly.cake.service;
 import com.poly.cake.dto.DiaChiDto;
 import com.poly.cake.entity.DiaChiGiaoHang;
 import com.poly.cake.entity.NguoiDung;
-import com.poly.cake.exception.MaxAddressLimitException;
+import com.poly.cake.exception.NgoaiLeVuotGioiHanDiaChi;
 import com.poly.cake.repository.DiaChiGiaoHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ public class DiaChiGiaoHangService {
 
         // Kiểm tra giới hạn 5 địa chỉ
         if (diaChiRepository.countByNguoiDungId(userId) >= 5) {
-            throw new MaxAddressLimitException("Bạn chỉ được lưu tối đa 5 địa chỉ giao hàng!");
+            throw new NgoaiLeVuotGioiHanDiaChi("Bạn chỉ được lưu tối đa 5 địa chỉ giao hàng!");
         }
 
         DiaChiGiaoHang diaChi = new DiaChiGiaoHang();

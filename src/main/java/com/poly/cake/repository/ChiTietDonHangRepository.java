@@ -11,6 +11,6 @@ import java.util.List;
 public interface ChiTietDonHangRepository extends JpaRepository<ChiTietDonHang, Long> {
 
     // Lấy toàn bộ chi tiết sản phẩm của 1 đơn hàng - dùng để trừ tồn kho khi
-    // thanh toán thành công (xem InventoryService.truTonKhoTheoDonHang)
+    // thanh toán thành công (xem TonKhoService.truTonKhoTheoDonHang)
     List<ChiTietDonHang> findByDonHang(DonHang donHang);
 }

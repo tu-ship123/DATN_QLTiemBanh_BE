@@ -35,7 +35,7 @@ public class AdminSanPhamController {
     private AdminSanPhamService adminSanPhamService;
 
     @Autowired
-    private com.poly.cake.service.InventoryService inventoryService;
+    private com.poly.cake.service.TonKhoService inventoryService;
 
     // GET: Cả ADMIN và NHAN_VIEN đều xem được
     @GetMapping

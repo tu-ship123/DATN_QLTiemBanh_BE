@@ -1,8 +1,8 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
+import com.poly.cake.exception.NgoaiLeCamTruyCap;
 
 import com.poly.cake.dto.DanhGiaDto;
 import com.poly.cake.entity.DanhGia;
@@ -14,7 +14,7 @@ import com.poly.cake.repository.DanhGiaRepository;
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
-import com.poly.cake.util.ProfanityFilterUtils;
+import com.poly.cake.util.TuCamFilterUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,37 +37,37 @@ public class DanhGiaService {
     public DanhGiaDto.Response guiDanhGia(Long donHangId, DanhGiaDto.Request request, String emailKhach) {
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy tài khoản"));
 
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng #" + donHangId));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy đơn hàng #" + donHangId));
 
         // Chỉ chủ đơn mới được đánh giá
         if (!donHang.getKhachHang().getId().equals(khachHang.getId())) {
-            throw new ForbiddenException("Bạn không có quyền đánh giá đơn hàng này");
+            throw new NgoaiLeCamTruyCap("Bạn không có quyền đánh giá đơn hàng này");
         }
 
         // Chỉ đơn HOAN_THANH mới được đánh giá
         if (donHang.getTrangThai() != TrangThaiDonHang.HOAN_THANH) {
-            throw new BusinessException("Chỉ có thể đánh giá đơn hàng đã hoàn thành");
+            throw new NgoaiLeNghiepVu("Chỉ có thể đánh giá đơn hàng đã hoàn thành");
         }
 
         SanPham sanPham = sanPhamRepository.findById(request.getSanPhamId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         // Kiểm tra sản phẩm có trong đơn không
         boolean sanPhamTrongDon = donHang.getChiTietDonHangs().stream()
                 .anyMatch(ct -> ct.getSanPham().getId().equals(sanPham.getId()));
         if (!sanPhamTrongDon) {
-            throw new BusinessException("Sản phẩm không thuộc đơn hàng này");
+            throw new NgoaiLeNghiepVu("Sản phẩm không thuộc đơn hàng này");
         }
 
         // Kiểm tra đã đánh giá sản phẩm này trong đơn chưa
         if (danhGiaRepository.existsByKhachHangAndDonHangAndSanPham(khachHang, donHang, sanPham)) {
-            throw new BusinessException("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
+            throw new NgoaiLeNghiepVu("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
         }
 
-String cleanedNoiDung = ProfanityFilterUtils.filterText(request.getNoiDung());
+String cleanedNoiDung = TuCamFilterUtils.filterText(request.getNoiDung());
 
         DanhGia danhGia = DanhGia.builder()
                 .khachHang(khachHang)
@@ -87,13 +87,13 @@ String cleanedNoiDung = ProfanityFilterUtils.filterText(request.getNoiDung());
     public DanhGiaDto.DonHangDanhGiaResponse layDanhGiaTheoDon(Long donHangId, String emailKhach) {
 
         NguoiDung khachHang = nguoiDungRepository.findByEmail(emailKhach)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy tài khoản"));
 
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy đơn hàng"));
 
         if (!donHang.getKhachHang().getId().equals(khachHang.getId())) {
-            throw new ForbiddenException("Không có quyền xem đánh giá này");
+            throw new NgoaiLeCamTruyCap("Không có quyền xem đánh giá này");
         }
 
         List<DanhGia> danhSach = danhGiaRepository.findByDonHang(donHang);
@@ -126,7 +126,7 @@ String cleanedNoiDung = ProfanityFilterUtils.filterText(request.getNoiDung());
 
     public List<DanhGiaDto.Response> layDanhGiaTheoSanPham(Long sanPhamId) {
         SanPham sanPham = sanPhamRepository.findById(sanPhamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
         return danhGiaRepository.findBySanPhamAndBiAnFalseOrderByNgayTaoDesc(sanPham)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }

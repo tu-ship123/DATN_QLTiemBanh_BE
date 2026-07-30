@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Map;
 
 /**
- * API cho trợ lý ảo (AI chatbot) tư vấn khách hàng — khác với MessagesController
+ * API cho trợ lý ảo (AI chatbot) tư vấn khách hàng — khác với TinNhanController
  * (nhắn tin thật với nhân viên). Public — khách vãng lai (chưa đăng nhập) vẫn
  * dùng được để hỏi về menu/chính sách trước khi mua.
  */

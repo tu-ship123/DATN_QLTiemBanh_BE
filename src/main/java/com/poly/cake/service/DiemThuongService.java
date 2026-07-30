@@ -1,8 +1,8 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
-import com.poly.cake.exception.ForbiddenException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
+import com.poly.cake.exception.NgoaiLeCamTruyCap;
 
 import com.poly.cake.dto.DiemVoucherDto;
 import com.poly.cake.entity.*;
@@ -83,16 +83,16 @@ public class DiemThuongService {
         // Tìm mã giảm giá hợp lệ để đổi điểm
         MaGiamGia ma = maGiamGiaRepository
                 .findByMaCodeAndHoatDongTrueAndDiemCanDungIsNotNull(request.getMaGoiVoucher())
-                .orElseThrow(() -> new BusinessException("Mã giảm giá không hợp lệ hoặc không thể đổi bằng điểm!"));
+                .orElseThrow(() -> new NgoaiLeNghiepVu("Mã giảm giá không hợp lệ hoặc không thể đổi bằng điểm!"));
 
         int tongDiem = diemThuongRepository.tinhTongDiem(khach);
         if (tongDiem < ma.getDiemCanDung()) {
-            throw new BusinessException("Không đủ điểm! Bạn có " + tongDiem + " điểm, cần " + ma.getDiemCanDung() + " điểm.");
+            throw new NgoaiLeNghiepVu("Không đủ điểm! Bạn có " + tongDiem + " điểm, cần " + ma.getDiemCanDung() + " điểm.");
         }
 
         // Kiểm tra mã còn hạn không
         if (ma.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Mã giảm giá đã hết hạn!");
+            throw new NgoaiLeNghiepVu("Mã giảm giá đã hết hạn!");
         }
 
         // Trừ điểm
@@ -128,15 +128,15 @@ public class DiemThuongService {
     public void congDiemXacNhanNhanHang(Long donHangId, String email) {
         NguoiDung khach = timKhach(email);
         DonHang donHang = donHangRepository.findById(donHangId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Đơn hàng không tồn tại!"));
 
         if (!donHang.getKhachHang().getId().equals(khach.getId())) {
-            throw new ForbiddenException("Không có quyền xác nhận đơn hàng này!");
+            throw new NgoaiLeCamTruyCap("Không có quyền xác nhận đơn hàng này!");
         }
 
         // Dùng toán tử == để so sánh Enum
         if (donHang.getTrangThai() != TrangThaiDonHang.DANG_GIAO) {
-            throw new BusinessException("Đơn hàng không ở trạng thái đang giao!");
+            throw new NgoaiLeNghiepVu("Đơn hàng không ở trạng thái đang giao!");
         }
 
         donHang.setTrangThai(TrangThaiDonHang.HOAN_THANH);
@@ -156,7 +156,7 @@ public class DiemThuongService {
         try {
             diemThuongRepository.save(giaoDich);
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException("Đơn hàng này đã được cộng điểm rồi!");
+            throw new NgoaiLeNghiepVu("Đơn hàng này đã được cộng điểm rồi!");
         }
     }
     // ═══════════════════════════════════════════════════════════════════════════
@@ -196,7 +196,7 @@ public class DiemThuongService {
         }
 
         DonHang donHang = donHangRepository.findById(request.getDonHangId())
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng POS không tìm thấy!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Đơn hàng POS không tìm thấy!"));
 
         // ── KHÔNG CẦN DÙNG EXISTS NỮA, THAY BẰNG TRY-CATCH KHI SAVE ──
         int diem = tinhDiemTheoTien(donHang.getTongTien());
@@ -236,7 +236,7 @@ public class DiemThuongService {
     // ═══════════════════════════════════════════════════════════════════════════
     private NguoiDung timKhach(String email) {
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy tài khoản!"));
     }
 
     private int tinhDiemTheoTien(BigDecimal tien) {

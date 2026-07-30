@@ -1,7 +1,7 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 
 import com.poly.cake.dto.GioHangDto;
 import com.poly.cake.entity.ChiTietGioHang;
@@ -41,7 +41,7 @@ public class GioHangService {
 
     private final VoucherKhachHangRepository voucherKhachHangRepository;
 
-    private final CakeDesignPricingService cakeDesignPricingService;
+    private final ThietKeBanhDinhGiaService cakeDesignPricingService;
 
     // ─── LẤY GIỎ HÀNG CỦA USER (tạo mới nếu chưa có) ──────────────────────
     @Transactional
@@ -64,17 +64,17 @@ public class GioHangService {
         GioHang gioHang = layHoacTaoGioHang(nguoiDung);
 
         SanPham sanPham = sanPhamRepository.findById(request.getSanPhamId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + request.getSanPhamId()));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm với ID: " + request.getSanPhamId()));
 
         if (!"DANG_BAN".equals(sanPham.getTrangThai())) {
-            throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" hiện không còn bán.");
+            throw new NgoaiLeNghiepVu("Sản phẩm \"" + sanPham.getTenSanPham() + "\" hiện không còn bán.");
         }
 
         // Bánh 3D tùy chỉnh (có thietKeBanhJson) là hàng làm theo yêu cầu, không áp dụng
         // kiểm tra tồn kho như sản phẩm bán sẵn thông thường. Giá của nó KHÔNG lấy trực
         // tiếp từ request.getDonGiaTuyChinh() (client gửi lên, có thể bị sửa qua DevTools),
         // mà BE tự tính lại từ chính JSON thiết kế (size + số tầng + phụ kiện tra giá
-        // thật trong DB) - xem CakeDesignPricingService.
+        // thật trong DB) - xem ThietKeBanhDinhGiaService.
         boolean laBanhTuyChinh = request.getThietKeBanhJson() != null
                 && !request.getThietKeBanhJson().isBlank();
         BigDecimal giaBanhTuyChinh = laBanhTuyChinh
@@ -82,7 +82,7 @@ public class GioHangService {
                 : null;
 
         if (!laBanhTuyChinh && sanPham.getSoLuongTon() <= 0) {
-            throw new BusinessException("Sản phẩm \"" + sanPham.getTenSanPham() + "\" đã hết hàng.");
+            throw new NgoaiLeNghiepVu("Sản phẩm \"" + sanPham.getTenSanPham() + "\" đã hết hàng.");
         }
 
         // Kiểm tra xem sản phẩm đã có trong giỏ chưa (không tính thiết kế 3D)
@@ -96,7 +96,7 @@ public class GioHangService {
             ChiTietGioHang chiTiet = chiTietTonTai.get();
             int soLuongMoi = chiTiet.getSoLuong() + request.getSoLuong();
             if (!laBanhTuyChinh && soLuongMoi > sanPham.getSoLuongTon()) {
-                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
+                throw new NgoaiLeNghiepVu("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             chiTiet.setSoLuong(soLuongMoi);
             if (laBanhTuyChinh) {
@@ -105,7 +105,7 @@ public class GioHangService {
         } else {
             // Thêm mới
             if (!laBanhTuyChinh && request.getSoLuong() > sanPham.getSoLuongTon()) {
-                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
+                throw new NgoaiLeNghiepVu("Số lượng vượt quá tồn kho! Còn lại: " + sanPham.getSoLuongTon());
             }
             ChiTietGioHang chiTietMoi = ChiTietGioHang.builder()
                     .gioHang(gioHang)
@@ -130,7 +130,7 @@ public class GioHangService {
         ChiTietGioHang chiTiet = gioHang.getChiTietGioHangs().stream()
                 .filter(ct -> ct.getId().equals(chiTietId))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm trong giỏ hàng!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm trong giỏ hàng!"));
 
         if (request.getSoLuong() <= 0) {
             // Xóa nếu số lượng <= 0
@@ -138,7 +138,7 @@ public class GioHangService {
         } else {
             boolean laBanhTuyChinh = chiTiet.getDonGiaTuyChinh() != null;
             if (!laBanhTuyChinh && request.getSoLuong() > chiTiet.getSanPham().getSoLuongTon()) {
-                throw new BusinessException("Số lượng vượt quá tồn kho! Còn lại: " + chiTiet.getSanPham().getSoLuongTon());
+                throw new NgoaiLeNghiepVu("Số lượng vượt quá tồn kho! Còn lại: " + chiTiet.getSanPham().getSoLuongTon());
             }
             chiTiet.setSoLuong(request.getSoLuong());
         }
@@ -157,7 +157,7 @@ public class GioHangService {
                 .removeIf(ct -> ct.getId().equals(chiTietId));
 
         if (!removed) {
-            throw new ResourceNotFoundException("Không tìm thấy sản phẩm trong giỏ hàng!");
+            throw new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm trong giỏ hàng!");
         }
 
         gioHangRepository.save(gioHang);
@@ -182,11 +182,11 @@ public class GioHangService {
         GioHang gioHang = layHoacTaoGioHang(nguoiDung);
 
         if (gioHang.getChiTietGioHangs().isEmpty()) {
-            throw new BusinessException("Giỏ hàng đang trống, không thể áp dụng mã giảm giá!");
+            throw new NgoaiLeNghiepVu("Giỏ hàng đang trống, không thể áp dụng mã giảm giá!");
         }
 
         MaGiamGia maGiamGia = maGiamGiaRepository.findByMaCode(request.getMaCode().trim())
-                .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Mã giảm giá không tồn tại!"));
 
         BigDecimal tongTienHang = tinhTongTienHang(gioHang);
         kiemTraMaGiamGiaHopLe(maGiamGia, tongTienHang);
@@ -215,12 +215,12 @@ public class GioHangService {
         GioHang gioHang = layHoacTaoGioHang(nguoiDung);
 
         if (gioHang.getChiTietGioHangs().isEmpty()) {
-            throw new BusinessException("Giỏ hàng đang trống, không thể áp dụng voucher!");
+            throw new NgoaiLeNghiepVu("Giỏ hàng đang trống, không thể áp dụng voucher!");
         }
 
         VoucherKhachHang voucher = voucherKhachHangRepository
                 .findByIdAndKhachHang(request.getVoucherKhachHangId(), nguoiDung)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher này!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy voucher này!"));
 
         BigDecimal tongTienHang = tinhTongTienHang(gioHang);
         kiemTraVoucherKhachHangHopLe(voucher, tongTienHang);
@@ -245,19 +245,19 @@ public class GioHangService {
     // ─── HELPER: Kiểm tra mã giảm giá còn hợp lệ để áp dụng không ──────────
     private void kiemTraMaGiamGiaHopLe(MaGiamGia maGiamGia, BigDecimal tongTienHang) {
         if (!Boolean.TRUE.equals(maGiamGia.getHoatDong())) {
-            throw new BusinessException("Mã giảm giá này hiện không còn hoạt động!");
+            throw new NgoaiLeNghiepVu("Mã giảm giá này hiện không còn hoạt động!");
         }
         if (maGiamGia.getNgayHetHan() != null && maGiamGia.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Mã giảm giá này đã hết hạn!");
+            throw new NgoaiLeNghiepVu("Mã giảm giá này đã hết hạn!");
         }
         if (maGiamGia.getSoLuotToiDa() != null
                 && maGiamGia.getSoLuotDaDung() != null
                 && maGiamGia.getSoLuotDaDung() >= maGiamGia.getSoLuotToiDa()) {
-            throw new BusinessException("Mã giảm giá này đã hết lượt sử dụng!");
+            throw new NgoaiLeNghiepVu("Mã giảm giá này đã hết lượt sử dụng!");
         }
         if (maGiamGia.getDonHangToiThieu() != null
                 && tongTienHang.compareTo(maGiamGia.getDonHangToiThieu()) < 0) {
-            throw new BusinessException(
+            throw new NgoaiLeNghiepVu(
                     "Đơn hàng chưa đạt giá trị tối thiểu " + maGiamGia.getDonHangToiThieu()
                             + " để áp dụng mã này!");
         }
@@ -294,14 +294,14 @@ public class GioHangService {
     // ─── HELPER: Kiểm tra voucher cá nhân còn hợp lệ để áp dụng không ───────
     private void kiemTraVoucherKhachHangHopLe(VoucherKhachHang voucher, BigDecimal tongTienHang) {
         if (!"CHUA_SU_DUNG".equals(voucher.getTrangThai())) {
-            throw new BusinessException("Voucher này đã được sử dụng hoặc không còn hiệu lực!");
+            throw new NgoaiLeNghiepVu("Voucher này đã được sử dụng hoặc không còn hiệu lực!");
         }
         if (voucher.getNgayHetHan() != null && voucher.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Voucher này đã hết hạn!");
+            throw new NgoaiLeNghiepVu("Voucher này đã hết hạn!");
         }
         if (voucher.getDonHangToiThieu() != null
                 && tongTienHang.compareTo(voucher.getDonHangToiThieu()) < 0) {
-            throw new BusinessException(
+            throw new NgoaiLeNghiepVu(
                     "Đơn hàng chưa đạt giá trị tối thiểu " + voucher.getDonHangToiThieu()
                             + " để áp dụng voucher này!");
         }
@@ -325,7 +325,7 @@ public class GioHangService {
     // ─── HELPER: Tìm người dùng ──────────────────────────────────────────────
     private NguoiDung timNguoiDung(String email) {
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản: " + email));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy tài khoản: " + email));
     }
 
     // ─── HELPER: Lấy hoặc tạo giỏ hàng ─────────────────────────────────────
@@ -369,7 +369,7 @@ public class GioHangService {
             try {
                 kiemTraMaGiamGiaHopLe(maGiamGia, tongTienHang);
                 soTienGiam = tinhSoTienGiam(maGiamGia, tongTienHang);
-            } catch (BusinessException e) {
+            } catch (NgoaiLeNghiepVu e) {
                 gioHang.setMaGiamGia(null);
                 gioHangRepository.save(gioHang);
                 maGiamGia = null;
@@ -378,7 +378,7 @@ public class GioHangService {
             try {
                 kiemTraVoucherKhachHangHopLe(voucherKhachHang, tongTienHang);
                 soTienGiam = tinhSoTienGiamVoucher(voucherKhachHang, tongTienHang);
-            } catch (BusinessException e) {
+            } catch (NgoaiLeNghiepVu e) {
                 gioHang.setVoucherKhachHang(null);
                 gioHangRepository.save(gioHang);
                 voucherKhachHang = null;

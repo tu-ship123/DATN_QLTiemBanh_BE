@@ -1,18 +1,18 @@
 package com.poly.cake.service;
 
-import com.poly.cake.dto.AuthDto.AuthResponse;
+import com.poly.cake.dto.XacThucDto.AuthResponse;
 import com.poly.cake.dto.HoSoDto.ChangePasswordRequest;
 import com.poly.cake.dto.HoSoDto.ProfileResponse;
 import com.poly.cake.dto.HoSoDto.UpdateProfileRequest;
 import com.poly.cake.entity.LamMoiToken;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.NhatKyHeThong;
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 import com.poly.cake.repository.LamMoiTokenRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.NhatKyHeThongRepository;
-import com.poly.cake.security.JwtUtil;
+import com.poly.cake.security.TienIchJwt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,7 +33,7 @@ public class HoSoService {
     private final LamMoiTokenRepository lamMoiTokenRepository;
     private final NhatKyHeThongRepository nhatKyHeThongRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
+    private final TienIchJwt jwtUtil;
 
     // T066: Lấy thông tin hồ sơ cá nhân hiện tại
     @Transactional(readOnly = true)
@@ -55,7 +55,7 @@ public class HoSoService {
         if (soDienThoaiMoi != null && !soDienThoaiMoi.equals(user.getSoDienThoai())) {
             Optional<NguoiDung> chuSoDienThoai = nguoiDungRepository.findBySoDienThoai(soDienThoaiMoi);
             if (chuSoDienThoai.isPresent() && !chuSoDienThoai.get().getId().equals(user.getId())) {
-                throw new BusinessException("Số điện thoại này đã được sử dụng bởi tài khoản khác!");
+                throw new NgoaiLeNghiepVu("Số điện thoại này đã được sử dụng bởi tài khoản khác!");
             }
         }
 
@@ -86,7 +86,7 @@ public class HoSoService {
         // bắt buộc xác thực đúng mật khẩu cũ để tránh chiếm quyền tài khoản
         // nếu thiết bị/token bị lộ.
         if (!passwordEncoder.matches(request.getMatKhauHienTai(), user.getMatKhau())) {
-            throw new BusinessException("Mật khẩu hiện tại không chính xác!");
+            throw new NgoaiLeNghiepVu("Mật khẩu hiện tại không chính xác!");
         }
 
         // DF_ST01 (Fix): trước đây BE không hề kiểm tra mật khẩu mới có trùng
@@ -94,7 +94,7 @@ public class HoSoService {
         // bỏ qua validate của FE thì vẫn đổi "thành công" sang cùng 1 mật khẩu cũ.
         // Chặn ngay tại BE để đảm bảo quy tắc này luôn đúng bất kể FE có validate hay không.
         if (passwordEncoder.matches(request.getMatKhauMoi(), user.getMatKhau())) {
-            throw new BusinessException("Mật khẩu mới phải khác mật khẩu hiện tại!");
+            throw new NgoaiLeNghiepVu("Mật khẩu mới phải khác mật khẩu hiện tại!");
         }
 
         // T097: Tài khoản nội bộ (ADMIN, NHAN_VIEN) đổi mật khẩu qua Staff
@@ -102,7 +102,7 @@ public class HoSoService {
         // siết chặt hơn khách hàng để giảm rủi ro dò/đoán mật khẩu nội bộ.
         boolean laTaiKhoanNoiBo = "ADMIN".equals(user.getQuyen()) || "NHAN_VIEN".equals(user.getQuyen());
         if (laTaiKhoanNoiBo && !chuaKyTuDacBiet(request.getMatKhauMoi())) {
-            throw new BusinessException("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (VD: !@#$%^&*)!");
+            throw new NgoaiLeNghiepVu("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (VD: !@#$%^&*)!");
         }
 
         user.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
@@ -146,7 +146,7 @@ public class HoSoService {
 
     private NguoiDung timTaiKhoan(String email) {
         return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại!"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Tài khoản không tồn tại!"));
     }
 
     private ProfileResponse toResponse(NguoiDung user) {

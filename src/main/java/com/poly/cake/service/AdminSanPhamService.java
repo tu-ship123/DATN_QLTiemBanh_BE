@@ -1,7 +1,7 @@
 package com.poly.cake.service;
 
-import com.poly.cake.exception.BusinessException;
-import com.poly.cake.exception.ResourceNotFoundException;
+import com.poly.cake.exception.NgoaiLeNghiepVu;
+import com.poly.cake.exception.NgoaiLeKhongTimThayTaiNguyen;
 
 import com.poly.cake.dto.SanPhamDto;
 import com.poly.cake.entity.DanhMuc;
@@ -27,7 +27,7 @@ public class AdminSanPhamService {
 
     private final DanhMucRepository danhMucRepository;
 
-    private final InventoryService inventoryService;
+    private final TonKhoService inventoryService;
 
     /**
      * Tên sản phẩm "đại diện" dùng chung cho MỌI chiếc bánh khách tự thiết kế ở
@@ -110,7 +110,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         return mapToResponseDto(sanPham);
     }
@@ -132,7 +132,7 @@ public class AdminSanPhamService {
         DanhMuc danhMuc = danhMucRepository.findById(
                         request.getDanhMucId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy danh mục"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy danh mục"));
 
         SanPham sanPham = new SanPham();
 
@@ -170,12 +170,12 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         DanhMuc danhMuc = danhMucRepository.findById(
                         request.getDanhMucId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy danh mục"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy danh mục"));
 
         sanPham.setDanhMuc(danhMuc);
         sanPham.setTenSanPham(request.getTenSanPham());
@@ -204,10 +204,10 @@ public class AdminSanPhamService {
     public SanPhamDto.Response capNhatTonKho(Long id, Integer soLuongThayDoi) {
 
         sanPhamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         if (soLuongThayDoi == null || soLuongThayDoi == 0) {
-            throw new BusinessException("Số lượng thay đổi phải khác 0");
+            throw new NgoaiLeNghiepVu("Số lượng thay đổi phải khác 0");
         }
 
         if (soLuongThayDoi > 0) {
@@ -215,14 +215,14 @@ public class AdminSanPhamService {
         } else {
             int soDongBiAnhHuong = sanPhamRepository.truSoLuongTon(id, -soLuongThayDoi);
             if (soDongBiAnhHuong == 0) {
-                throw new BusinessException(
+                throw new NgoaiLeNghiepVu(
                         "Số lượng tồn kho hiện tại không đủ để trừ " + (-soLuongThayDoi));
             }
         }
 
         // Đọc lại bản ghi mới nhất sau UPDATE, rồi kiểm tra + gửi cảnh báo nếu cần
         SanPham sanPhamMoiNhat = sanPhamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         inventoryService.kiemTraVaCanhBaoNeuTonKhoThap(sanPhamMoiNhat);
 
@@ -235,7 +235,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         sanPhamRepository.delete(sanPham);
     }
@@ -246,7 +246,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         sanPham.setTrangThai("TAM_AN");
 
@@ -261,7 +261,7 @@ public class AdminSanPhamService {
 
         SanPham sanPham = sanPhamRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Không tìm thấy sản phẩm"));
+                        new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy sản phẩm"));
 
         sanPham.setTrangThai("DANG_BAN");
 

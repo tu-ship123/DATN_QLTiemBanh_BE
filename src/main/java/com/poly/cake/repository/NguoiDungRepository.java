@@ -28,7 +28,7 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long> {
     Optional<NguoiDung> findByGoogleId(String googleId);
 
     // Lấy danh sách người dùng theo nhiều quyền (VD: ADMIN, NHAN_VIEN) và đang hoạt
-    // động - dùng để gửi cảnh báo tồn kho thấp / bán vượt tồn kho (InventoryService)
+    // động - dùng để gửi cảnh báo tồn kho thấp / bán vượt tồn kho (TonKhoService)
     List<NguoiDung> findByQuyenInAndTrangThai(List<String> quyen, String trangThai);
 
     // Danh sách người dùng theo 1 quyền cụ thể (VD: lấy tất cả nhân viên)
