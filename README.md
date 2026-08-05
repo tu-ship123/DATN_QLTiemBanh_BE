@@ -16,5 +16,5 @@ mvn spring-boot:run
 
 - REST API endpoints
 - JWT Authentication
-- Database: MySQL
+- Database: SQL server
 - Logging with SLF4J
