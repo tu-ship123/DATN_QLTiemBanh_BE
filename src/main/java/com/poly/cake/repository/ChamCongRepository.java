@@ -19,9 +19,16 @@ public interface ChamCongRepository extends JpaRepository<ChamCong, Long> {
     @Query("SELECT cc FROM ChamCong cc WHERE cc.phanCa.ngayLamViec = :ngay AND cc.loaiBaoCao IS NOT NULL")
     List<ChamCong> findByNgayLamViecAndCoLoaiBaoCao(@Param("ngay") LocalDate ngay);
 
+    // [FIX] Trước đây bắt buộc cả gioVao LẪN gioRa đều phải có mới lấy ra ->
+    // nhân viên nào có ca CHƯA check-out (gioRa = null, vd ca đang làm dở, hoặc
+    // quên bấm check-out) sẽ bị loại khỏi bảng lương hoàn toàn, dù đã có dữ liệu
+    // chấm công (check-in) trong DB. Giờ chỉ cần gioVao (luôn có ngay từ lúc
+    // check-in) để nhân viên luôn xuất hiện trong bảng lương; ca chưa check-out
+    // sẽ không được tính giờ làm ở tầng service (xem BaoCaoService) chứ không bị
+    // loại bỏ luôn cả nhân viên.
     @Query("SELECT c FROM ChamCong c JOIN FETCH c.phanCa pc JOIN FETCH pc.nhanVien nv " +
             "WHERE MONTH(pc.ngayLamViec) = :thang AND YEAR(pc.ngayLamViec) = :nam " +
-            "AND c.gioVao IS NOT NULL AND c.gioRa IS NOT NULL")
+            "AND c.gioVao IS NOT NULL")
     List<ChamCong> findByThangAndNam(@Param("thang") int thang, @Param("nam") int nam);
 
 }
