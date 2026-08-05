@@ -313,10 +313,24 @@ public class BaoCaoService {
 
             BangLuongDto dto = mapLuong.getOrDefault(nvId, new BangLuongDto(nvId, tenNv, 0.0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
 
-            // Tính số phút làm việc thực tế
-            long minutes = Duration.between(cc.getGioVao(), cc.getGioRa()).toMinutes();
-            double gioLam = minutes / 60.0;
-            dto.setTongGioLam(dto.getTongGioLam() + gioLam);
+            // [FIX] Ca CHƯA check-out (gioRa = null, vd đang làm dở hoặc quên
+            // bấm check-out) thì chưa thể tính số giờ đã làm cho ca đó -> bỏ
+            // qua phần tính giờ của riêng ca này, nhưng KHÔNG bỏ qua cả nhân
+            // viên (nhân viên vẫn được đưa vào mapLuong ở trên nên vẫn hiện
+            // trong bảng lương, tính đủ theo các ca khác đã hoàn tất).
+            if (cc.getGioVao() != null && cc.getGioRa() != null) {
+                // Tính số phút làm việc thực tế
+                long minutes = Duration.between(cc.getGioVao(), cc.getGioRa()).toMinutes();
+                double gioLam = minutes / 60.0;
+
+                // [FIX] T102: áp dụng hệ số lương ngày lễ (x2/x3...) đã được lưu
+                // sẵn trên từng ca chấm công lúc check-in -> trước đây tính giờ
+                // xong bỏ luôn, không nhân hệ số, nên ngày lễ vẫn trả lương thường.
+                BigDecimal heSo = cc.getHeSoLuong() != null ? cc.getHeSoLuong() : BigDecimal.ONE;
+                double gioLamQuyDoi = gioLam * heSo.doubleValue();
+
+                dto.setTongGioLam(dto.getTongGioLam() + gioLamQuyDoi);
+            }
 
             if (cc.getPhutDiTre() != null) {
                 dto.setTongPhutTre(dto.getTongPhutTre() + cc.getPhutDiTre());
