@@ -148,6 +148,10 @@ public class DatHangService {
         donHang.setTrangThai(TrangThaiDonHang.CHO_XAC_NHAN);
         donHang.setNguonDon("ONLINE");
 
+        // FIX: Chuẩn hoá hình thức thanh toán khách chọn ở Checkout ("COD"/"SEPAY").
+        // Giá trị không hợp lệ (hoặc thiếu) sẽ mặc định về COD để không chặn luồng đặt hàng.
+        boolean laSepay = "SEPAY".equalsIgnoreCase(request.getPhuongThucThanhToan());
+
         if (maGiamGiaApDung != null) {
             donHang.setMaGiamGia(maGiamGiaApDung);
         } else if (voucherApDung != null) {
@@ -184,6 +188,25 @@ public class DatHangService {
 
         chiTietDonHangRepository.saveAll(chiTietList);
         savedDonHang.setChiTietDonHangs(chiTietList);
+
+        // FIX QUAN TRỌNG: Trước đây đơn ONLINE (cả COD lẫn SEPAY) không hề tạo bản ghi
+        // ThanhToan nào khi đặt hàng. Hậu quả:
+        //  - Webhook SePay (updatePaymentStatus) tìm ThanhToan theo đơn -> không thấy gì
+        //    -> không lưu được số tiền/thời điểm/mã giao dịch thật, dù đơn vẫn lên DA_XAC_NHAN.
+        //  - Trang đối soát (BaoCaoService.getDanhSachDoiSoat) và báo cáo kết ca
+        //    (KetCaService) đều đọc từ bảng thanh_toan -> mất luôn doanh thu SePay online.
+        //  - Nếu khách tự hủy đơn SAU khi đã chuyển khoản thành công, cancelOrder() kiểm
+        //    tra ThanhToan để biết "đã thanh toán chưa" -> không thấy gì -> hủy đơn kiểu
+        //    "chưa thanh toán", KHÔNG đánh dấu cần hoàn tiền -> rủi ro mất tiền khách.
+        // Nay tạo sẵn 1 bản ghi CHO_THANH_TOAN ngay khi đặt hàng, tương tự cách
+        // PosDatHangService đã làm cho đơn bán tại quầy.
+        ThanhToan thanhToan = ThanhToan.builder()
+                .donHang(savedDonHang)
+                .hinhThuc(laSepay ? "CHUYEN_KHOAN" : "TIEN_MAT")
+                .soTien(tongTienThanhToan)
+                .trangThai("CHO_THANH_TOAN")
+                .build();
+        thanhToanRepository.save(thanhToan);
 
         if (maGiamGiaApDung != null) {
             maGiamGiaApDung.setSoLuotDaDung(
@@ -559,6 +582,11 @@ public class DatHangService {
 
     @Transactional
     public void updatePaymentStatus(Long orderId, BigDecimal soTienNhanDuoc) {
+        updatePaymentStatus(orderId, soTienNhanDuoc, null);
+    }
+
+    @Transactional
+    public void updatePaymentStatus(Long orderId, BigDecimal soTienNhanDuoc, String maGiaoDich) {
         DonHang donHang = donHangRepository.findById(orderId)
                 .orElseThrow(() -> new NgoaiLeKhongTimThayTaiNguyen("Không tìm thấy đơn hàng: " + orderId));
 
@@ -577,12 +605,24 @@ public class DatHangService {
                     "Số tiền chuyển khoản (" + soTienNhanDuoc + ") nhỏ hơn tổng tiền đơn hàng (" + tongTien + ")");
         }
 
-        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
-            tt.setTrangThai("THANH_CONG");
-            tt.setSoTien(soTienNhanDuoc);
-            tt.setThoiDiemThanhToan(LocalDateTime.now());
-            thanhToanRepository.save(tt);
-        });
+        // FIX: trước đây nếu không tìm thấy ThanhToan (đơn ONLINE không tạo bản ghi
+        // lúc đặt hàng) thì .ifPresent(...) coi như bỏ qua luôn, mất dấu giao dịch.
+        // Nay createOrder() luôn tạo sẵn 1 bản ghi CHO_THANH_TOAN nên trường hợp rỗng
+        // chỉ còn xảy ra với dữ liệu cũ trước khi có fix này -> vẫn tự tạo bù để an toàn.
+        ThanhToan thanhToan = thanhToanRepository.findByDonHang(donHang)
+                .orElseGet(() -> ThanhToan.builder()
+                        .donHang(donHang)
+                        .hinhThuc("CHUYEN_KHOAN")
+                        .soTien(soTienNhanDuoc)
+                        .trangThai("CHO_THANH_TOAN")
+                        .build());
+        thanhToan.setTrangThai("THANH_CONG");
+        thanhToan.setSoTien(soTienNhanDuoc);
+        thanhToan.setThoiDiemThanhToan(LocalDateTime.now());
+        if (maGiaoDich != null && !maGiaoDich.isBlank()) {
+            thanhToan.setMaGiaoDich(maGiaoDich);
+        }
+        thanhToanRepository.save(thanhToan);
 
         donHang.setTrangThai(TrangThaiDonHang.DA_XAC_NHAN);
         donHangRepository.save(donHang);

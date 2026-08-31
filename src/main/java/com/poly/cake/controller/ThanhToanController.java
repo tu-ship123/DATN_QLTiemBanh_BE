@@ -59,7 +59,13 @@ public class ThanhToanController {
                         BigDecimal soTienNhanDuoc = request.getTransferAmount() != null
                                 ? BigDecimal.valueOf(request.getTransferAmount())
                                 : BigDecimal.ZERO;
-                        orderService.updatePaymentStatus(orderId, soTienNhanDuoc);
+                        // FIX: truyền thêm mã giao dịch ngân hàng (code) để lưu vào ThanhToan.maGiaoDich,
+                        // phục vụ đối soát sau này. referenceCode dùng làm phương án dự phòng nếu
+                        // SePay không trả "code".
+                        String maGiaoDich = request.getCode() != null && !request.getCode().isBlank()
+                                ? request.getCode()
+                                : request.getReferenceCode();
+                        orderService.updatePaymentStatus(orderId, soTienNhanDuoc, maGiaoDich);
                         log.info("✅ Xử lý Webhook SePay THÀNH CÔNG cho đơn hàng: DH{}", orderId);
 
                     } catch (NgoaiLeKhongTimThayTaiNguyen e) {
