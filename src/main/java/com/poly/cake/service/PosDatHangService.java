@@ -9,12 +9,14 @@ import com.poly.cake.entity.ChiTietDonHang;
 import com.poly.cake.entity.MaGiamGia;
 import com.poly.cake.entity.NguoiDung;
 import com.poly.cake.entity.SanPham;
+import com.poly.cake.entity.ThanhToan;
 import com.poly.cake.entity.TrangThaiDonHang; // Đã thêm import Enum
 import com.poly.cake.repository.DonHangRepository;
 import com.poly.cake.repository.ChiTietDonHangRepository;
 import com.poly.cake.repository.MaGiamGiaRepository;
 import com.poly.cake.repository.NguoiDungRepository;
 import com.poly.cake.repository.SanPhamRepository;
+import com.poly.cake.repository.ThanhToanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class PosDatHangService {
     private final NguoiDungRepository nguoiDungRepository;
     private final SanPhamRepository sanPhamRepository;
     private final MaGiamGiaRepository maGiamGiaRepository;
+    private final ThanhToanRepository thanhToanRepository; // FIX: cần để ghi nhận thanh toán cho đơn quầy
     // T102 – Tính % phụ thu tự động theo ngày (đơn POS mua ngay nên tính theo ngày hôm nay)
     private final PhuThuDonHangService phuThuDonHangService;
 
@@ -139,6 +142,23 @@ public class PosDatHangService {
         savedDonHang.setTongTien(totalAmount);
         donHangRepository.save(savedDonHang);
 
+        // 4d. FIX: Ghi nhận bản ghi ThanhToan cho hóa đơn quầy — trước đây bước này
+        // bị thiếu hoàn toàn, khiến doanh thu bán tại quầy KHÔNG BAO GIỜ được tính
+        // vào "Kết Ca – Báo cáo" (KetCaService chỉ tổng hợp doanh thu dựa trên bảng
+        // thanh_toan có trangThai = THANH_CONG).
+        //
+        // - Tiền mặt: khách trả ngay, đơn đã HOAN_THANH => tạo ThanhToan THANH_CONG luôn.
+        // - VietQR: đơn đang chờ khách quét mã (DA_XAC_NHAN) => tạo ThanhToan CHO_THANH_TOAN,
+        //   sẽ được confirmPosOrderPaid() cập nhật thành THANH_CONG khi NV xác nhận đã nhận tiền.
+        ThanhToan thanhToan = ThanhToan.builder()
+                .donHang(savedDonHang)
+                .hinhThuc(laTienMat ? "TIEN_MAT" : "CHUYEN_KHOAN")
+                .soTien(totalAmount)
+                .trangThai(laTienMat ? "THANH_CONG" : "CHO_THANH_TOAN")
+                .thoiDiemThanhToan(laTienMat ? LocalDateTime.now() : null)
+                .build();
+        thanhToanRepository.save(thanhToan);
+
         // 4c. Nếu áp mã thành công thì cộng lượt đã dùng (chỉ commit sau khi đơn đã lưu thành công)
         if (maGiamGiaApDung != null) {
             maGiamGiaApDung.setSoLuotDaDung(
@@ -193,6 +213,15 @@ public class PosDatHangService {
         // Mua tại quầy: khách đã quét QR + nhận hàng trực tiếp -> hoàn tất luôn, không qua sản xuất/giao hàng
         donHang.setTrangThai(TrangThaiDonHang.HOAN_THANH);
         donHangRepository.save(donHang);
+
+        // FIX: đồng bộ bản ghi ThanhToan sang THANH_CONG — nếu không, đơn quầy trả bằng
+        // VietQR dù đã được NV xác nhận nhận tiền vẫn không hiện trong Kết Ca – Báo cáo
+        // (KetCaService chỉ tính các ThanhToan có trangThai = THANH_CONG).
+        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
+            tt.setTrangThai("THANH_CONG");
+            tt.setThoiDiemThanhToan(LocalDateTime.now());
+            thanhToanRepository.save(tt);
+        });
     }
 
     @Transactional
@@ -217,6 +246,13 @@ public class PosDatHangService {
         donHang.setTrangThai(TrangThaiDonHang.DA_HUY);
         donHang.setLyDoHuy("Nhân viên hủy mã QR trước khi khách thanh toán (Hóa đơn quầy)");
         donHangRepository.save(donHang);
+
+        // FIX: đóng luôn bản ghi ThanhToan CHO_THANH_TOAN (nếu có) để không treo
+        // một giao dịch "đang chờ" mãi mãi cho một đơn đã bị hủy.
+        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
+            tt.setTrangThai("THAT_BAI");
+            thanhToanRepository.save(tt);
+        });
     }
 
     // Hàm phụ định dạng văn bản in hóa đơn cân đối

@@ -255,6 +255,20 @@ public class AdminDatHangService {
         appendMiniAuditLog(donHang, nhanVien.getHoTen(),
                 "Quét mã vạch giao hàng thành công → chuyển sang DA_GIAO.");
 
+        // FIX: đơn COD (thanh toán tiền mặt khi nhận hàng) được tạo với ThanhToan ở
+        // trạng thái CHO_THANH_TOAN (xem DatHangService.createOrder()). Trước đây
+        // không có bước nào cập nhật bản ghi này khi khách đã thực nhận và trả tiền,
+        // khiến các đơn COD KHÔNG BAO GIỜ được tính vào đối soát/kết ca dù đã thu tiền
+        // thành công. Nay khi shipper quét mã xác nhận đã giao (và đơn là tiền mặt),
+        // đánh dấu luôn ThanhToan = THANH_CONG.
+        thanhToanRepository.findByDonHang(donHang).ifPresent(tt -> {
+            if ("TIEN_MAT".equalsIgnoreCase(tt.getHinhThuc()) && !"THANH_CONG".equals(tt.getTrangThai())) {
+                tt.setTrangThai("THANH_CONG");
+                tt.setThoiDiemThanhToan(thoiDiemGiao);
+                thanhToanRepository.save(tt);
+            }
+        });
+
         DonHang saved = donHangRepository.save(donHang);
         notifyUser(saved, "📦 Đơn hàng HD-" + orderId + " của bạn đã được giao thành công lúc "
                 + thoiDiemGiao.format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")) + "!");

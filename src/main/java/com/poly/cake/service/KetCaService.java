@@ -83,8 +83,18 @@ public class KetCaService {
             throw new NgoaiLeNghiepVu("Ca này đã có Z-Report rồi.");
         }
 
-        LocalDateTime tuThoiDiem  = chamCong.getGioVao();
-        LocalDateTime denThoiDiem = LocalDateTime.now();
+        LocalDateTime tuThoiDiem = chamCong.getGioVao();
+
+        // FIX: nếu nhân viên ĐÃ check-out (chamCong.getGioRa() đã có giá trị),
+        // phải chốt mốc kết thúc = giờ check-out thật, KHÔNG được dùng
+        // LocalDateTime.now(). Trước đây luôn dùng now() nên nếu nhân viên
+        // check-out lúc 10:04 rồi vài tiếng sau (VD 15:50) mới vào bấm
+        // X-Report, hệ thống sẽ tính doanh thu trong khoảng [gioVao, 15:50]
+        // thay vì đúng ra phải là [gioVao, gioRa] — dễ gộp nhầm doanh thu của
+        // ca/nhân viên khác phát sinh sau khi ca này đã kết thúc.
+        LocalDateTime denThoiDiem = chamCong.getGioRa() != null
+                ? chamCong.getGioRa()
+                : LocalDateTime.now();
 
         if (tuThoiDiem == null) {
             throw new NgoaiLeNghiepVu("Dữ liệu chấm công không hợp lệ (giờ vào trống).");

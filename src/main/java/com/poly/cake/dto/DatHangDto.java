@@ -26,6 +26,15 @@ public class DatHangDto {
 
         private String ghiChu;
 
+        /**
+         * FIX: Hình thức thanh toán khách chọn ở màn Checkout ("COD" hoặc "SEPAY").
+         * Trước đây field này không tồn tại nên BE không biết đơn được thanh toán
+         * kiểu gì, dẫn tới không tạo được bản ghi ThanhToan tương ứng khi tạo đơn
+         * (xem createOrder() trong DatHangService). Mặc định "COD" nếu FE không gửi,
+         * để tương thích ngược với client cũ.
+         */
+        private String phuongThucThanhToan = "COD";
+
         @NotEmpty(message = "Đơn hàng phải có ít nhất 1 sản phẩm")
         @Valid
         private List<OrderItemRequest> items;
